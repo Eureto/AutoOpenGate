@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main_root_scrollview"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="eureto.opendoor.ui.MainActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sterowanie eWeLink"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp" />
+
+        <Button
+            android:id="@+id/btnLogout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Wyloguj"
+            android:layout_gravity="end"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/textViewDevicesTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Moje urządzenia:"
+            android:textSize="18sp"
+            android:textStyle="italic"
+            android:layout_marginBottom="8dp"/>
+
+        <Spinner
+            android:id="@+id/spinnerDevices"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:id="@+id/tvSelectedDevice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Wybrane urządzenie: Brak"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/tvDeviceCurrentStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Status: Nieznany"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"/>
+
+        <Button
+            android:id="@+id/btnToggleDevice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Włącz"
+            android:padding="12dp"
+            android:textSize="18sp"
+            android:enabled="false"
+            android:layout_marginBottom="32dp"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@android:color/darker_gray"
+            android:layout_marginBottom="32dp"/>
+
+        <TextView
+            android:id="@+id/textViewAutomationTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Automatyka lokalizacji:"
+            android:textSize="18sp"
+            android:textStyle="italic"
+            android:layout_marginBottom="8dp"/>
+
+        <Button
+            android:id="@+id/btnOpenMap"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Zaznacz obszar domu na mapie"
+            android:padding="12dp"
+            android:textSize="18sp"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/tvMonitoringStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Status monitorowania: Nieaktywne"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <Button
+            android:id="@+id/btnStartMonitoring"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Rozpocznij monitorowanie"
+            android:padding="12dp"
+            android:textSize="18sp"
+            android:enabled="false"
+            android:layout_marginBottom="8dp"/>
+
+        <Button
+            android:id="@+id/btnStopMonitoring"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Zatrzymaj monitorowanie"
+            android:padding="12dp"
+            android:textSize="18sp"
+            android:visibility="gone" />
+
+
+        <!-- Add ComposeView for the logging box -->
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/compose_log_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="8dp" />
+
+    </LinearLayout>
+</ScrollView>

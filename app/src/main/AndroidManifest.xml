@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Wymagane uprawnienia dla lokalizacji -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" /> <!-- Wymagane dla Androida 10+ dla lokalizacji w tle -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" /> <!-- DODANO: Wymagane dla foregroundServiceType="location" na API 34+ -->
+
+    <!-- Internet -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> <!-- Dla usługi działającej w tle -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" /> <!-- Android 13+ dla powiadomień -->
+
+    <application
+        android:name=".EwelinkApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.OpenDoor"
+        tools:targetApi="31">
+
+        <!-- Metadane dla Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyAguhxlQgqh8v5rxSnPAKvDJAWjHIMbw78" />
+
+        <activity
+            android:name="eureto.opendoor.ui.LoginActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Intent filter dla OAuth2 Redirect URI -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Ważne: Custom scheme dla Redirect URI. Zastąp "ewelinkapp" swoją unikalną nazwą. euretoapp://oauth2callback-->
+                <data android:scheme="euretoapp" android:host="oauth2callback" />
+            </intent-filter>
+        </activity>
+        <activity android:name="eureto.opendoor.ui.MainActivity" />
+        <activity android:name="eureto.opendoor.ui.MapActivity" />
+
+        <!-- Usługa działająca w tle dla monitorowania lokalizacji -->
+        <service
+            android:name=".location.LocationMonitoringService"
+            android:foregroundServiceType="location"
+            android:enabled="true"/>
+
+        <!-- Broadcast Receiver dla Geofencing -->
+        <receiver
+            android:name=".location.GeofenceTransitionsReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="eureto.opendoor.ACTION_GEOFENCE_TRANSITION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- WorkManager (konfiguracja domyślna jest ok) -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
+<!--        <activity-->
+<!--            android:name=".MainActivity"-->
+<!--            android:exported="true"-->
+<!--            android:label="@string/app_name"-->
+<!--            android:theme="@style/Theme.OpenDoor">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.intent.action.MAIN" />-->
+
+<!--                <category android:name="android.intent.category.LAUNCHER" />-->
+<!--            </intent-filter>-->
+<!--        </activity>-->
+    </application>
+
+</manifest>

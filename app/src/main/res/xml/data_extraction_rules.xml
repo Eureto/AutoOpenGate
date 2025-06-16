@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+   Sample data extraction rules file; uncomment and customize as necessary.
+   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
+   for details.
+-->
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapabilities="true">
+        <exclude domain="sharedprefs" path="secure_ewelink_prefs.xml"/>
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedprefs" path="secure_ewelink_prefs.xml"/>
+    </device-transfer>
+</data-extraction-rules>
+
+<!--<data-extraction-rules>-->
+<!--    <cloud-backup>-->
+<!--        &lt;!&ndash; TODO: Use <include> and <exclude> to control what is backed up.-->
+<!--        <include .../>-->
+<!--        <exclude .../>-->
+<!--        &ndash;&gt;-->
+<!--    </cloud-backup>-->
+<!--    &lt;!&ndash;-->
+<!--    <device-transfer>-->
+<!--        <include .../>-->
+<!--        <exclude .../>-->
+<!--    </device-transfer>-->
+<!--    &ndash;&gt;-->
+<!--</data-extraction-rules>-->

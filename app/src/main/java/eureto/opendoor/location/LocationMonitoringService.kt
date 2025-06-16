@@ -1,0 +1,253 @@
+package eureto.opendoor.location
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Color
+import android.os.Build
+import android.os.IBinder
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.google.android.gms.location.Geofence
+import com.google.android.gms.location.GeofencingClient
+import com.google.android.gms.location.GeofencingRequest
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.PolyUtil
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import eureto.opendoor.R // Upewnij się, że masz resources
+import eureto.opendoor.data.AppPreferences // Zmień nazwę pakietu
+import eureto.opendoor.network.EwelinkApiClient // Zmień nazwę pakietu
+import eureto.opendoor.network.EwelinkWebSocketClient // Zmień nazwę pakietu
+import kotlinx.coroutines.*
+import java.util.concurrent.TimeUnit
+
+class LocationMonitoringService : Service() {
+
+    private lateinit var geofencingClient: GeofencingClient
+    private lateinit var appPreferences: AppPreferences
+    private lateinit var ewelinkWebSocketClient: EwelinkWebSocketClient
+    private lateinit var notificationManager: NotificationManager
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val gson = Gson()
+
+    private var deviceIdToControl: String? = null
+    private var polygonCoordinates: List<LatLng>? = null
+    private var isInsideGeofence = false // Stan, czy użytkownik jest w obszarze
+
+    companion object {
+        const val ACTION_LOG_UPDATE = "eureto.opendoor.action.LOG_UPDATE"
+        const val EXTRA_LOG_MESSAGE = "eureto.opendoor.extra.LOG_MESSAGE"
+        const val NOTIFICATION_CHANNEL_ID = "eureto_opendoor_location_channel"
+        const val NOTIFICATION_ID = 123
+        const val GEOFENCE_REQUEST_ID = "home_area_geofence"
+        const val GEOFENCE_RADIUS_METERS = 500f // Promień dla symulacji wielokąta
+        const val ACTION_GEOFENCE_TRANSITION = "eureto.opendoor.ACTION_GEOFENCE_TRANSITION" // Zmień nazwę pakietu
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        geofencingClient = LocationServices.getGeofencingClient(this)
+        appPreferences = EwelinkApiClient.getAppPreferences()
+        ewelinkWebSocketClient = EwelinkApiClient.createWebSocketClient()
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        createNotificationChannel()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d("LocationService", "onStartCommand")
+
+        deviceIdToControl = intent?.getStringExtra("deviceId")
+        val polygonJson = intent?.getStringExtra("polygonJson")
+
+        if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
+            Log.e("LocationService", "Brak deviceId lub polygonJson. Zatrzymuję usługę.")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        try {
+            val type = object : TypeToken<List<LatLng>>() {}.type
+            polygonCoordinates = gson.fromJson(polygonJson, type)
+            if (polygonCoordinates.isNullOrEmpty() || polygonCoordinates!!.size < 3) {
+                Log.e("LocationService", "Nieprawidłowe współrzędne wielokąta. Zatrzymuję usługę.")
+                stopSelf()
+                return START_NOT_STICKY
+            }
+        } catch (e: Exception) {
+            Log.e("LocationService", "Błąd parsowania współrzędnych wielokąta: ${e.message}", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        startForeground(NOTIFICATION_ID, createNotification("Monitorowanie lokalizacji aktywne.").build())
+
+        // Połącz z WebSocket tylko, jeśli nie jest już połączony
+        if (ewelinkWebSocketClient.webSocket == null) {
+            ewelinkWebSocketClient.connect()
+        }
+
+        // Zawsze dodawaj Geofence na początku
+        addGeofences()
+
+        // Rozpocznij wysyłanie pingów, aby utrzymać połączenie WS
+        serviceScope.launch {
+            while (isActive) {
+                delay(TimeUnit.SECONDS.toMillis(30)) // Wysyłaj ping co 30 sekund
+                ewelinkWebSocketClient.sendPing()
+            }
+        }
+
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d("LocationService", "onDestroy")
+        removeGeofences()
+        ewelinkWebSocketClient.disconnect()
+        serviceScope.cancel() // Anuluj wszystkie coroutines
+        stopForeground(true)
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val serviceChannel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Monitorowanie eWeLink",
+                NotificationManager.IMPORTANCE_LOW // Niska ważność, żeby nie przeszkadzało
+            )
+            serviceChannel.description = "Kanał dla powiadomień o monitorowaniu lokalizacji eWeLink."
+            serviceChannel.enableLights(false)
+            serviceChannel.enableVibration(false)
+            serviceChannel.setSound(null, null)
+            serviceChannel.lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+
+            notificationManager.createNotificationChannel(serviceChannel)
+        }
+    }
+
+    private fun createNotification(message: String): NotificationCompat.Builder {
+        val notificationIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent: PendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            notificationIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setContentTitle("eWeLink Automatyka")
+            .setContentText(message)
+            .setSmallIcon(R.mipmap.ic_launcher_round) // Zmień na ikonę aplikacji
+            .setContentIntent(pendingIntent)
+            .setOngoing(true) // Oznacza, że powiadomienie jest aktywne i nie można go usunąć
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+    }
+
+    private fun addGeofences() {
+        // DODANO: Sprawdzenie uprawnień do lokalizacji przed dodaniem Geofence
+        sendLogToMainActivity("Wykonuję funkcję addGeofences()")
+        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
+            this,
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarseLocationPermission = ContextCompat.checkSelfPermission(
+            this,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
+            Log.e("LocationService", "Brak uprawnień do lokalizacji podczas dodawania Geofence. Nie dodaję.")
+            updateNotification("Błąd: Brak uprawnień do lokalizacji do dodania Geofence.")
+            return
+        }
+
+        val polygon = polygonCoordinates
+        if (polygon.isNullOrEmpty() || polygon.size < 3) {
+            Log.e("LocationService", "Brak zdefiniowanego wielokąta do geofencingu.")
+            return
+        }
+
+        // Dla wielokąta, użyjemy centralnego punktu wielokąta i dużego promienia
+        // Następnie w GeofenceTransitionsReceiver sprawdzimy dokładną lokalizację w wielokącie
+        val centroid = calculatePolygonCentroid(polygon)
+
+        val geofence = Geofence.Builder()
+            .setRequestId(GEOFENCE_REQUEST_ID)
+            .setCircularRegion(centroid.latitude, centroid.longitude, GEOFENCE_RADIUS_METERS)
+            .setExpirationDuration(Geofence.NEVER_EXPIRE)
+            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
+            .setLoiteringDelay(5000) // Opóźnienie przed wyzwoleniem zdarzenia DWELL
+            .build()
+
+        val geofencingRequest = GeofencingRequest.Builder()
+            .addGeofence(geofence)
+            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER) // Sprawdź przy dodawaniu
+            .build()
+
+        val geofencePendingIntent: PendingIntent by lazy {
+            val intent = Intent(this, GeofenceTransitionsReceiver::class.java).apply {
+                action = ACTION_GEOFENCE_TRANSITION
+            }
+            PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        }
+
+        geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent)
+            .addOnSuccessListener {
+                Log.d("LocationService", "Geofence dodany pomyślnie.")
+                updateNotification("Monitorowanie aktywne: Obszar dodany.")
+            }
+            .addOnFailureListener { e ->
+                Log.e("LocationService", "Błąd dodawania Geofence: ${e.message}", e)
+                updateNotification("Monitorowanie błąd: ${e.message}")
+            }
+    }
+
+    private fun removeGeofences() {
+        sendLogToMainActivity("usuwania Geofences w removeGeofences()")
+        geofencingClient.removeGeofences(listOf(GEOFENCE_REQUEST_ID))
+            .addOnSuccessListener {
+                Log.d("LocationService", "Geofence usunięty pomyślnie.")
+            }
+            .addOnFailureListener { e ->
+                Log.e("LocationService", "Błąd usuwania Geofence: ${e.message}", e)
+            }
+    }
+
+    // Obliczanie centroidu wielokąta (uproszczone, dla prostych wielokątów)
+    private fun calculatePolygonCentroid(polygon: List<LatLng>): LatLng {
+        var latitude = 0.0
+        var longitude = 0.0
+        for (point in polygon) {
+            latitude += point.latitude
+            longitude += point.longitude
+        }
+        return LatLng(latitude / polygon.size, longitude / polygon.size)
+    }
+
+    private fun updateNotification(message: String) {
+        sendLogToMainActivity("updateNotification: $message")
+        val notification = createNotification(message).build()
+        notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    private fun sendLogToMainActivity(message: String) {
+        val intent = Intent(ACTION_LOG_UPDATE)
+        intent.putExtra(EXTRA_LOG_MESSAGE, message)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+    }
+}
