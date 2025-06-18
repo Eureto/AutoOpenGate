@@ -13,4 +13,4 @@
 .externalNativeBuild
 .cxx
 local.properties
-/app/src/main/java/eureto/opendoor/data/AppPreferences.kt
+secrets.properties

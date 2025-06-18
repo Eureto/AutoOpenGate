@@ -4,14 +4,10 @@ buildscript {
     repositories {
         google() // Essential for Google-provided plugins
         mavenCentral()
-        // Other repositories if needed
     }
     dependencies {
-        // ... other classpath dependencies like the Android Gradle Plugin (AGP)
-        // classpath("com.android.tools.build:gradle:...") // Example, you'll have your AGP version here
-
         // Add this line for the Secrets Gradle Plugin:
-        classpath("com.google.android.libraries.mapsplatform.secrets-gradle-plugin:secrets-gradle-plugin:2.0.1") // Use the latest version
+        classpath("com.google.android.libraries.mapsplatform.secrets-gradle-plugin:secrets-gradle-plugin:2.0.1")
     }
 }
 
