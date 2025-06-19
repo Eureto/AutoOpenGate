@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -83,6 +84,20 @@ class MainActivity : AppCompatActivity() {
             checkAndStartLocationMonitoring()
         } else {
             Toast.makeText(this, "Uprawnienia lokalizacji NIE przyznane. Automatyka może nie działać.", Toast.LENGTH_LONG).show()
+            // TODO: Przekieruj użytkownika do ustawień, aby mógł ręcznie przyznać uprawnienia
+            // Utwórz intencję, aby otworzyć ustawienia dla tej konkretnej aplikacji
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", packageName, null)
+            }
+            // Sprawdź, czy jest aktywność, która może obsłużyć tę intencję
+            if (intent.resolveActivity(packageManager) != null) {
+                startActivity(intent)
+                // Możesz dodać dodatkową informację dla użytkownika, np. w kolejnym Toast
+                Toast.makeText(this, "Proszę włączyć uprawnienia lokalizacji w ustawieniach aplikacji.", Toast.LENGTH_LONG).show()
+            } else {
+                // Rzadki przypadek, ale warto obsłużyć
+                Toast.makeText(this, "Nie można otworzyć ustawień aplikacji.", Toast.LENGTH_SHORT).show()
+            }
             binding.btnStartMonitoring.isEnabled = false
         }
     }
