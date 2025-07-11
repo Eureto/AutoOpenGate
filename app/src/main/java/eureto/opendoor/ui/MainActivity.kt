@@ -14,13 +14,10 @@ import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
-import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -29,21 +26,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.text
-import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import eureto.opendoor.R // Upewnij się, że masz plik strings.xml z app_name
 import eureto.opendoor.data.AppPreferences // Zmień nazwę pakietu
 import eureto.opendoor.databinding.ActivityMainBinding // Zmień nazwę pakietu
 import eureto.opendoor.location.LocationMonitoringService // Zmień nazwę pakietu
@@ -54,8 +48,6 @@ import eureto.opendoor.network.model.DeviceControlParams
 import eureto.opendoor.network.model.DeviceControlRequest
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlin.text.format
-import androidx.compose.runtime.mutableStateListOf
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import java.text.SimpleDateFormat
 import java.util.Date // Upewnij się, że ten import jest obecny
@@ -138,7 +130,7 @@ class MainActivity : AppCompatActivity() {
         }
         // Example: Log when the activity is created
         addLogMessage("MainActivity onCreate called")
-
+        setupLogReceiver()
         setupUI()
         fetchDevices()
         observeDeviceStatusUpdates()
@@ -280,11 +272,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ZMIENIONO: Funkcja toggleDevice do używania REST API zamiast WebSocket
     private fun toggleDevice(deviceId: String, state: String) {
         addLogMessage("MainActivity toggleDevice called")
         addLogMessage("Przerwarzanie toggleDevice")
-        return; // do debugowania
+        return; //TODO: Usuń ten return, jest tylko do testów, fukcja działa
         lifecycleScope.launch {
             try {
                 val apiService = ewelinkApiClient.createApiService()
@@ -347,6 +338,7 @@ class MainActivity : AppCompatActivity() {
         val selectedId = appPreferences.getSelectedDeviceId()
         val polygonJson = appPreferences.getPolygonCoordinates()
 
+        // Sprawdź, czy wybrane urządzenie i obszar są ustawione
         if (selectedId.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
             Toast.makeText(this, "Wybierz urządzenie i zaznacz obszar na mapie przed rozpoczęciem monitorowania.", Toast.LENGTH_LONG).show()
             updateMonitoringButtons()
@@ -363,7 +355,7 @@ class MainActivity : AppCompatActivity() {
 
         if (!hasFineLocation || !hasBackgroundLocation) {
             Toast.makeText(this, "Brak wymaganych uprawnień lokalizacji.", Toast.LENGTH_LONG).show()
-            // Tutaj ponownie poproś o uprawnienia lub przekieruj do ustawień
+            // Ponownie poproś o uprawnienia lub przekieruj do ustawień
             requestLocationPermissions()
             return
         }
@@ -375,6 +367,7 @@ class MainActivity : AppCompatActivity() {
         // Jeśli chcesz przekazać referencję do WebSocketClienta, musisz użyć bindService
         // lub stworzyć instancję w serwisie i komunikować się poprzez BroadcastReceiver/LocalBroadcastManager
         ContextCompat.startForegroundService(this, serviceIntent)
+        addLogMessage("Uruchomionono LocationMonitorigService")
         Toast.makeText(this, "Rozpoczęto monitorowanie lokalizacji.", Toast.LENGTH_SHORT).show()
         updateMonitoringStatusUI()
     }
@@ -435,6 +428,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     // --- Composable for the Logging Box ---
+    //TODO: Dodaj możliwość przewijania tekstu
     @Composable
     fun LoggingScreen(logMessages: List<String>) {
         val listState = rememberLazyListState()
@@ -478,7 +472,7 @@ class MainActivity : AppCompatActivity() {
                                 .fillMaxWidth()
                                 .padding(vertical = 2.dp, horizontal = 4.dp)
                         )
-                        Divider(color = Color.LightGray, thickness = 0.5.dp)
+                        HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
                     }
                 }
             }

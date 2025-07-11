@@ -30,7 +30,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.tasks.await // DODANO IMPORT
-
+//TODO: usuń niepotrzebne importy, jeśli są
 
 class GeofenceTransitionsReceiver : BroadcastReceiver() {
 

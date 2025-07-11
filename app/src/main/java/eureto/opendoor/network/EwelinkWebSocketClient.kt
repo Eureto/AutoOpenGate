@@ -15,6 +15,7 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import java.util.concurrent.TimeUnit
 import java.util.UUID
+//TODO: usuń nieużywane importy
 
 class EwelinkWebSocketClient(
     private val okHttpClient: OkHttpClient,
@@ -22,6 +23,8 @@ class EwelinkWebSocketClient(
     private val gson: Gson
 ) {
     internal var webSocket: WebSocket? = null
+
+    // TODO: Dodaj notyfikację o zmianie statusu urządzenia jeśli jest to wysłane przeze mnie lub jeśli ktoś inny otworzy bramę
     private val _deviceStatusUpdatesChannel = Channel<Device>(Channel.BUFFERED)
     val deviceStatusUpdatesFlow = _deviceStatusUpdatesChannel.receiveAsFlow()
 
@@ -120,7 +123,7 @@ class EwelinkWebSocketClient(
             }
         })
     }
-    // to nie zadziala poniweaz ewelink nie korzysta w ogole z websocket tylko z rest api
+
     fun disconnect() {
         webSocket?.close(1000, "User disconnected")
         webSocket = null

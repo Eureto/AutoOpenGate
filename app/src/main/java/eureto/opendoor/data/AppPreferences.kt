@@ -6,6 +6,8 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import eureto.opendoor.BuildConfig
 import eureto.opendoor.network.model.LoginResponse // Zmień nazwę pakietu
+//TODO: Zmień Depracated na aktualną nazwę pakietu
+
 
 class AppPreferences(private val context: Context) {
 

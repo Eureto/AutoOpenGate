@@ -28,6 +28,7 @@ import eureto.opendoor.network.EwelinkApiClient // Zmień nazwę pakietu
 import eureto.opendoor.network.EwelinkWebSocketClient // Zmień nazwę pakietu
 import kotlinx.coroutines.*
 import java.util.concurrent.TimeUnit
+//TODO: usuń niepotrzebne importy
 
 class LocationMonitoringService : Service() {
 
@@ -159,7 +160,6 @@ class LocationMonitoringService : Service() {
     }
 
     private fun addGeofences() {
-        // DODANO: Sprawdzenie uprawnień do lokalizacji przed dodaniem Geofence
         sendLogToMainActivity("Wykonuję funkcję addGeofences()")
         val hasFineLocationPermission = ContextCompat.checkSelfPermission(
             this,

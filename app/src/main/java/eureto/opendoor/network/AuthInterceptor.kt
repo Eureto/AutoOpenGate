@@ -20,6 +20,8 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets // Wymaga API 19
+//TODO: usuń nieużywane importy
+
 class AuthInterceptor(
     private val appPreferences: AppPreferences,
     private val clientId: String,
