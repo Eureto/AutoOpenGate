@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
-import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -29,7 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.tasks.await // DODANO IMPORT
+import kotlinx.coroutines.tasks.await
 //TODO: usuń niepotrzebne importy, jeśli są
 
 class GeofenceTransitionsReceiver : BroadcastReceiver() {
