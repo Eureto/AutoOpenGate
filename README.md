@@ -1,4 +1,8 @@
 ToDo:
+- make other branches for each big change
+- Check if ewelink accepts webSocket connection but i think no, so delete all webSocket code
+- Change the way location works. Firstly set geofence for center location and then check precise locaation if user enters geofence
+- Add option to set geofence radius
 - Change google maps to openstreetmaps 
 - Add option to activate device from notification
 - Add option to stop activity from notofication 

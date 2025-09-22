@@ -303,6 +303,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Nasłuchiwanie aktualizacji statusu urządzeń przez WebSocket
     private fun observeDeviceStatusUpdates() {
         lifecycleScope.launch {
             ewelinkWebSocketClient.deviceStatusUpdatesFlow.collectLatest { device ->
@@ -379,6 +380,8 @@ class MainActivity : AppCompatActivity() {
         updateMonitoringStatusUI()
     }
 
+
+    // Aktualizuje stan przycisków start/stop monitorowania na podstawie wybranego urządzenia i zaznaczonego obszaru
     private fun updateMonitoringButtons() {
         val isDeviceSelected = !appPreferences.getSelectedDeviceId().isNullOrEmpty()
         val isPolygonSet = !appPreferences.getPolygonCoordinates().isNullOrEmpty()
