@@ -50,8 +50,8 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
-        // Ustaw domyślną lokalizację (np. centrum Warszawy)
-        val warsaw = LatLng(52.2297, 21.0122)
+        // Ustaw domyślną lokalizację (np. centrum Krakowa)
+        val warsaw = LatLng( 22.001, 21.0122)
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(warsaw, 10f))
 
         // Umożliwienie rysowania wielokąta poprzez dotykanie mapy
@@ -83,6 +83,11 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
         val json = gson.toJson(polygonPoints)
         appPreferences.savePolygonCoordinates(json)
+        // Also save center point of the polygon for geofencing
+        val centerLat = polygonPoints.map { it.latitude }.average()
+        val centerLng = polygonPoints.map { it.longitude }.average()
+        appPreferences.savePolygonCenter(LatLng(centerLat, centerLng))
+
         Toast.makeText(this, "Obszar domu zapisany pomyślnie!", Toast.LENGTH_SHORT).show()
         Log.d("MapActivity", "Zapisano wielokąt: $json")
         finish() // Wróć do MainActivity

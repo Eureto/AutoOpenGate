@@ -16,6 +16,7 @@ secrets {
 
     // A properties file containing default secret values. This file can be
     // checked in version control.
+    // TODO: change the name of this file to match your default properties file. Secrets.properties.template
     defaultPropertiesFileName = "local.defaults.properties"
 }
 
