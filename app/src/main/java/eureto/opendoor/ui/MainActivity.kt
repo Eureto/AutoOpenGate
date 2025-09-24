@@ -49,6 +49,7 @@ import eureto.opendoor.network.model.DeviceControlRequest
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import eureto.opendoor.network.EwelinkDevices
 import java.text.SimpleDateFormat
 import java.util.Date // Upewnij się, że ten import jest obecny
 
@@ -181,7 +182,7 @@ class MainActivity : AppCompatActivity() {
             selectedDeviceId?.let { id ->
                 val currentSwitchState = binding.btnToggleDevice.text.toString()
                 val newState = if (currentSwitchState == "Włącz") "on" else "off"
-                toggleDevice(id, newState)
+                EwelinkDevices.toggleDevice(id, newState)
             } ?: Toast.makeText(this, "Wybierz urządzenie do sterowania.", Toast.LENGTH_SHORT).show()
         }
 
@@ -268,37 +269,6 @@ class MainActivity : AppCompatActivity() {
                 Log.e("MainActivity", "Błąd podczas pobierania urządzeń: ${e.message}", e)
                 deviceList = emptyList() // Upewnij się, że lista jest pusta w przypadku błędu
                 binding.spinnerDevices.adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, listOf("Brak urządzeń"))
-            }
-        }
-    }
-
-    private fun toggleDevice(deviceId: String, state: String) {
-        addLogMessage("MainActivity toggleDevice called")
-        addLogMessage("Przerwarzanie toggleDevice")
-        return; //TODO: Usuń ten return, jest tylko do testów, fukcja działa
-        lifecycleScope.launch {
-            try {
-                val apiService = ewelinkApiClient.createApiService()
-                val requestBody = DeviceControlRequest(
-                    type = 1, // 1 dla urządzenia
-                    id = deviceId,
-                    params = DeviceControlParams(switch = state)
-                )
-                val response = apiService.setDeviceStatus(requestBody)
-
-                if (response.error == 0 && response.msg == "ok") {
-                    Toast.makeText(this@MainActivity, "Pomyślnie zmieniono status urządzenia: $state", Toast.LENGTH_SHORT).show()
-                    Log.d("MainActivity", "Status urządzenia $deviceId zmieniony na $state przez REST API.")
-                    // Po udanej zmianie statusu przez REST API, odśwież listę urządzeń,
-                    // aby uzyskać najnowszy stan (alternatywnie: zaktualizuj lokalnie deviceList)
-                    fetchDevices() // Odświeżenie całej listy
-                } else {
-                    Toast.makeText(this@MainActivity, "Błąd zmiany statusu: ${response.msg ?: "Nieznany błąd"} (Kod: ${response.error})", Toast.LENGTH_LONG).show()
-                    Log.e("MainActivity", "Błąd zmiany statusu urządzenia $deviceId na $state: ${response.msg ?: "Nieznany błąd"} (Kod: ${response.error})")
-                }
-            } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, "Błąd sieci podczas zmiany statusu: ${e.message}", Toast.LENGTH_LONG).show()
-                Log.e("MainActivity", "Błąd sieci podczas zmiany statusu urządzenia: ${e.message}", e)
             }
         }
     }
@@ -431,7 +401,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     // --- Composable for the Logging Box ---
-    //TODO: Dodaj możliwość przewijania tekstu
+    //TODO: Add ability to scroll log text
+    //TODO: Change text color when in dark mode
     @Composable
     fun LoggingScreen(logMessages: List<String>) {
         val listState = rememberLazyListState()
@@ -471,11 +442,12 @@ class MainActivity : AppCompatActivity() {
                         Text(
                             text = message,
                             style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 2.dp, horizontal = 4.dp)
                         )
-                        HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                     }
                 }
             }

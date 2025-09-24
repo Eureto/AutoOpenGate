@@ -7,7 +7,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -19,17 +18,22 @@ import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.PolyUtil
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import eureto.opendoor.R // Upewnij się, że masz resources
-import eureto.opendoor.data.AppPreferences // Zmień nazwę pakietu
-import eureto.opendoor.network.EwelinkApiClient // Zmień nazwę pakietu
-import eureto.opendoor.network.EwelinkWebSocketClient // Zmień nazwę pakietu
+import eureto.opendoor.R
+import eureto.opendoor.data.AppPreferences
+import eureto.opendoor.network.EwelinkApiClient
+import eureto.opendoor.network.EwelinkDevices
+import eureto.opendoor.network.EwelinkWebSocketClient
 import kotlinx.coroutines.*
 import java.util.concurrent.TimeUnit
-//TODO: usuń niepotrzebne importy
 
+
+/**
+ * This service monitors the user's location and manages geofences based on a defined polygon.
+ * It connects to the eWeLink WebSocket to control a device when entering or exiting the geofenced area.
+ * The service runs in the foreground to ensure it remains active
+ */
 class LocationMonitoringService : Service() {
 
     private lateinit var geofencingClient: GeofencingClient
@@ -43,6 +47,7 @@ class LocationMonitoringService : Service() {
     private var polygonCoordinates: List<LatLng>? = null
     private var isInsideGeofence = false // Stan, czy użytkownik jest w obszarze
 
+    // Static values for intents and notifications
     companion object {
         const val ACTION_LOG_UPDATE = "eureto.opendoor.action.LOG_UPDATE"
         const val EXTRA_LOG_MESSAGE = "eureto.opendoor.extra.LOG_MESSAGE"
@@ -50,9 +55,12 @@ class LocationMonitoringService : Service() {
         const val NOTIFICATION_ID = 123
         const val GEOFENCE_REQUEST_ID = "home_area_geofence"
         const val GEOFENCE_RADIUS_METERS = 500f // Promień dla symulacji wielokąta
-        const val ACTION_GEOFENCE_TRANSITION = "eureto.opendoor.ACTION_GEOFENCE_TRANSITION" // Zmień nazwę pakietu
+        const val ACTION_GEOFENCE_TRANSITION = "eureto.opendoor.ACTION_GEOFENCE_TRANSITION"
+        const val ACTION_OPEN_GATE = "eureto.opendoor.ACTION_OPEN_GATE"
+        const val ACTION_STOP_SERVICE = "eureto.opendoor.ACTION_STOP_SERVICE"
     }
 
+    // Initialize components like GeofencingClient, NotificationManager, etc.
     override fun onCreate() {
         super.onCreate()
         geofencingClient = LocationServices.getGeofencingClient(this)
@@ -62,18 +70,45 @@ class LocationMonitoringService : Service() {
         createNotificationChannel()
     }
 
+    /**
+     * Called by the system every time a client explicitly starts the service by calling Context.startService,
+     * providing the arguments it supplied and a unique integer token representing the start request.
+     *
+     * Do not call this method directly.
+     */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d("LocationService", "onStartCommand")
+
+        when(intent?.action) {
+            ACTION_STOP_SERVICE -> {
+                Log.d("LocationService", "Otrzymano polecenie zatrzymania usługi.")
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            ACTION_OPEN_GATE -> {
+                Log.d("LocationService", "Otrzymano polecenie otwarcia bramy.")
+                if(deviceIdToControl == null) {
+                    Log.e("LocationService", "Nieznany deviceId, nie można otworzyć bramy.")
+                    updateNotification("Błąd: Nieznany deviceId, nie można otworzyć bramy.")
+                    return START_STICKY
+                }
+                EwelinkDevices.toggleDevice(deviceIdToControl ?: "", "on")
+                return START_STICKY
+            }
+        }
+
 
         deviceIdToControl = intent?.getStringExtra("deviceId")
         val polygonJson = intent?.getStringExtra("polygonJson")
 
+        // Check if deviceId and polygon are provided
         if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
             Log.e("LocationService", "Brak deviceId lub polygonJson. Zatrzymuję usługę.")
             stopSelf()
             return START_NOT_STICKY
         }
 
+        // Parse polygon coordinates from JSON
         try {
             val type = object : TypeToken<List<LatLng>>() {}.type
             polygonCoordinates = gson.fromJson(polygonJson, type)
@@ -88,20 +123,21 @@ class LocationMonitoringService : Service() {
             return START_NOT_STICKY
         }
 
+
         startForeground(NOTIFICATION_ID, createNotification("Monitorowanie lokalizacji aktywne.").build())
 
-        // Połącz z WebSocket tylko, jeśli nie jest już połączony
+        // Connect to WebSocket if not already connected
         if (ewelinkWebSocketClient.webSocket == null) {
             ewelinkWebSocketClient.connect()
         }
 
-        // Zawsze dodawaj Geofence na początku
         addGeofences()
 
-        // Rozpocznij wysyłanie pingów, aby utrzymać połączenie WS
+        // TODO: Check if it is needed in documentation
+        // Start ping coroutine to keep WebSocket alive
         serviceScope.launch {
             while (isActive) {
-                delay(TimeUnit.SECONDS.toMillis(30)) // Wysyłaj ping co 30 sekund
+                delay(TimeUnit.SECONDS.toMillis(30)) // Send ping every 30 seconds
                 ewelinkWebSocketClient.sendPing()
             }
         }
@@ -115,19 +151,20 @@ class LocationMonitoringService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d("LocationService", "onDestroy")
+        Log.d("LocationService", "onDestroy executed")
         removeGeofences()
         ewelinkWebSocketClient.disconnect()
-        serviceScope.cancel() // Anuluj wszystkie coroutines
+        serviceScope.cancel()
         stopForeground(true)
     }
 
+    // Create a notification channel for foreground service
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
                 "Monitorowanie eWeLink",
-                NotificationManager.IMPORTANCE_LOW // Niska ważność, żeby nie przeszkadzało
+                NotificationManager.IMPORTANCE_LOW
             )
             serviceChannel.description = "Kanał dla powiadomień o monitorowaniu lokalizacji eWeLink."
             serviceChannel.enableLights(false)
@@ -139,6 +176,7 @@ class LocationMonitoringService : Service() {
         }
     }
 
+    // Creates notification with given message and intent to open MainActivity
     private fun createNotification(message: String): NotificationCompat.Builder {
         val notificationIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -150,14 +188,39 @@ class LocationMonitoringService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        // Intent for the "Open Gate" button
+        val openGateIntent = Intent(this, LocationMonitoringService::class.java).apply {
+            action = ACTION_OPEN_GATE
+        }
+        val openGatePendingIntent: PendingIntent = PendingIntent.getService(
+            this,
+            1, // Unique request code
+            openGateIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Intent for the "Stop Service" button
+        val stopServiceIntent = Intent(this, LocationMonitoringService::class.java).apply {
+            action = ACTION_STOP_SERVICE
+        }
+        val stopServicePendingIntent: PendingIntent = PendingIntent.getService(
+            this,
+            2, // Unique request code
+            stopServiceIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle("eWeLink Automatyka")
             .setContentText(message)
-            .setSmallIcon(R.mipmap.ic_launcher_round) // Zmień na ikonę aplikacji
+            .setSmallIcon(R.mipmap.ic_launcher_round)
             .setContentIntent(pendingIntent)
-            .setOngoing(true) // Oznacza, że powiadomienie jest aktywne i nie można go usunąć
+            .setOngoing(true) // Make notification non-swipable - THIS DOES NOT WORK on android 15, on android 11 works well
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(R.drawable.ic_launcher_foreground, "Otwórz bramę", openGatePendingIntent)
+            .addAction(R.drawable.ic_launcher_foreground, "Zatrzymaj", stopServicePendingIntent)
     }
+
 
     private fun addGeofences() {
         sendLogToMainActivity("Wykonuję funkcję addGeofences()")
@@ -228,7 +291,7 @@ class LocationMonitoringService : Service() {
             }
     }
 
-    // Obliczanie centroidu wielokąta (uproszczone, dla prostych wielokątów)
+    // Calculate the centroid of a polygon given its vertices
     private fun calculatePolygonCentroid(polygon: List<LatLng>): LatLng {
         var latitude = 0.0
         var longitude = 0.0

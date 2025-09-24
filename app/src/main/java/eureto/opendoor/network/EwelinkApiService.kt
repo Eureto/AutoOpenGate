@@ -11,14 +11,14 @@ import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Query
 
-// Ten interfejs będzie używany do zapytań HTTP REST API
+// Interface for Ewelink API service using Retrofit
 interface EwelinkApiService {
 
     // Przykład pobierania listy urządzeń
     // URI to /v2/device/thing
-    @Headers("Content-Type: application/json") // DODANO: Nagłówek Content-Type dla żądania GET
+    @Headers("Content-Type: application/json")
     @GET("v2/device/thing")
-    suspend fun getDevices(): ApiResponse<DeviceListWrapper> // ZMIENIONO: Typ zwracany na DeviceListWrappe
+    suspend fun getDevices(): ApiResponse<DeviceListWrapper>
 
     // Przykład pobierania statusu pojedynczego urządzenia
     // URI to /v2/device/thing/status
@@ -27,7 +27,7 @@ interface EwelinkApiService {
 
     // Przykład pobierania statusu pojedynczego urządzenia
     // URI to /v2/device/thing/status
-    @POST("v2/device/thing/status") // Metoda POST zgodnie z dokumentacją
-    @Headers("Content-Type: application/json") // Dodano nagłówek Content-Type dla POST
-    suspend fun setDeviceStatus(@Body body: DeviceControlRequest): ApiResponse<ToggleResponse> // ZMIENIONO: Typ 'body' na DeviceControlRequest
+    @POST("v2/device/thing/status")
+    @Headers("Content-Type: application/json")
+    suspend fun setDeviceStatus(@Body body: DeviceControlRequest): ApiResponse<ToggleResponse>
 }

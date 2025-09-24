@@ -22,6 +22,11 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets // Wymaga API 19
 //TODO: usuń nieużywane importy
 
+/**
+ * This interceptor handles OAuth2 token management and request signing for eWeLink API.
+ * It automatically adds the necessary headers to each request, including the Authorization header
+ * with the Bearer token, and signs the request using HMAC-SHA256 as required by eWeLink.
+ */
 class AuthInterceptor(
     private val appPreferences: AppPreferences,
     private val clientId: String,

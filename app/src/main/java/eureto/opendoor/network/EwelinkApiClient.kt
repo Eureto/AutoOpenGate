@@ -9,7 +9,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-// Obiekt singleton do zarządzania instancjami klientów API
+// Sigleton object for Ewelink API Client
 object EwelinkApiClient {
 
     private lateinit var appPreferences: AppPreferences

@@ -1,10 +1,10 @@
 package eureto.opendoor.network
 
 import com.google.gson.Gson
-import eureto.opendoor.data.AppPreferences // Zmień nazwę pakietu
-import eureto.opendoor.network.model.Device // Zmień nazwę pakietu
+import eureto.opendoor.data.AppPreferences
+import eureto.opendoor.network.model.Device
 import eureto.opendoor.network.model.DeviceParams
-import eureto.opendoor.network.model.WebSocketMessage // Zmień nazwę pakietu
+import eureto.opendoor.network.model.WebSocketMessage
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import okhttp3.OkHttpClient
@@ -13,9 +13,7 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
-import java.util.concurrent.TimeUnit
-import java.util.UUID
-//TODO: usuń nieużywane importy
+
 
 class EwelinkWebSocketClient(
     private val okHttpClient: OkHttpClient,

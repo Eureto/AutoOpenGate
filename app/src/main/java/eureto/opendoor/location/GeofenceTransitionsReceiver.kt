@@ -29,21 +29,31 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.tasks.await
-//TODO: usuń niepotrzebne importy, jeśli są
+
+/**
+ * BroadcastReceiver to handle geofence transition events.
+ * It processes ENTER and EXIT events, checks if the user is within a defined polygon,
+ * and controls a device via the eWeLink API accordingly.
+ * It also manages notifications and logs events to MainActivity.
+ */
 
 class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
     private val notificationId = 1001
     private val notificationChannelId = LocationMonitoringService.NOTIFICATION_CHANNEL_ID
     private val gson = Gson()
-    private val scope = CoroutineScope(Dispatchers.Main) // Używamy scope dla coroutines
+    private val scope = CoroutineScope(Dispatchers.Main)
     private val TAG = "GeofenceTransitionsReceiver"
 
+    /**
+     * Constants for local broadcasts to MainActivity. It is used to send log messages to MainActivity and display them in the UI.
+     */
     companion object {
         const val ACTION_LOG_UPDATE = "eureto.opendoor.action.LOG_UPDATE" // Ta sama akcja co w LocationMonitoringService
         const val EXTRA_LOG_MESSAGE = "eureto.opendoor.extra.LOG_MESSAGE" // Ten sam klucz dla wiadomości
     }
 
+    //
     override fun onReceive(context: Context?, intent: Intent?) {
         if (context == null || intent?.action != LocationMonitoringService.ACTION_GEOFENCE_TRANSITION) {
             Log.e("GeofenceReceiver", "Nieznana akcja lub brak kontekstu: ${intent?.action}")
