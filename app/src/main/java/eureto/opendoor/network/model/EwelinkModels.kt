@@ -48,21 +48,21 @@ data class Device(
     @SerializedName("brandLogo") val brandLogo: String? = null,
     @SerializedName("showBrand") val showBrand: Boolean? = null,
     @SerializedName("productModel") val productModel: String? = null,
-    @SerializedName("tags") val tags: Map<String, Any>? = null, // Złożone, jako Map<String, Any>
-    @SerializedName("devConfig") val devConfig: Map<String, Any>? = null, // Złożone, jako Map<String, Any>
-    @SerializedName("settings") val settings: DeviceSettings? = null, // Nowa klasa DeviceSettings
-    @SerializedName("devGroups") val devGroups: List<String>? = null, // Może być lista stringów
+    @SerializedName("tags") val tags: Map<String, Any>? = null,
+    @SerializedName("devConfig") val devConfig: Map<String, Any>? = null,
+    @SerializedName("settings") val settings: DeviceSettings? = null,
+    @SerializedName("devGroups") val devGroups: List<String>? = null,
     @SerializedName("family") val family: Family? = null,
-    @SerializedName("sharedBy") val sharedBy: SharedBy? = null, // Nowa klasa SharedBy
+    @SerializedName("sharedBy") val sharedBy: SharedBy? = null,
     @SerializedName("devicekey") val devicekey: String? = null,
-    @SerializedName("online") val online: Boolean, // Przeniesiono tutaj z params
+    @SerializedName("online") val online: Boolean,
     @SerializedName("params") val params: DeviceParams,
     @SerializedName("denyFeatures") val denyFeatures: List<String>? = null,
     @SerializedName("isSupportGroup") val isSupportGroup: Boolean? = null,
     @SerializedName("isSupportedOnMP") val isSupportedOnMP: Boolean? = null,
     @SerializedName("isSupportChannelSplit") val isSupportChannelSplit: Boolean? = null,
     @SerializedName("wxModelId") val wxModelId: String? = null,
-    @SerializedName("deviceFeature") val deviceFeature: Map<String, Any>? = null // Złożone, jako Map<String, Any>
+    @SerializedName("deviceFeature") val deviceFeature: Map<String, Any>? = null
 )
 
 data class DeviceParams(
@@ -110,9 +110,9 @@ data class DeviceExtra(
 
 data class Family(
     @SerializedName("familyid") val familyid: String,
-    @SerializedName("familyName") val familyName: String? = null, // Dodano familyName
-    @SerializedName("index") val index: Int? = null, // Dodano index
-    @SerializedName("rooms") val rooms: List<Room>? = null // Zmieniono na nullable
+    @SerializedName("familyName") val familyName: String? = null,
+    @SerializedName("index") val index: Int? = null,
+    @SerializedName("rooms") val rooms: List<Room>? = null
 )
 
 data class Room(
@@ -144,7 +144,7 @@ data class Authority(
     @SerializedName("updateTimers") val updateTimers: Boolean? = null
 )
 
-// DODANO: Klasa dla pojedynczego timera
+
 data class Timer(
     @SerializedName("mId") val mId: String?,
     @SerializedName("type") val type: String?, // np. "once" lub "duration"
@@ -154,13 +154,11 @@ data class Timer(
     @SerializedName("do") val `do`: TimerDo? // Słowo kluczowe "do" wymaga użycia cudzysłowów
 )
 
-// DODANO: Klasa dla obiektu "do" w timerze
 data class TimerDo(
     @SerializedName("outlet") val outlet: Int?, // Zazwyczaj 0 dla pojedynczego wyjścia
     @SerializedName("switch") val switch: String? // "on" lub "off"
 )
 
-// DODANO: Nowe klasy dla ciała żądania sterowania urządzeniem
 data class DeviceControlParams(
     @SerializedName("switch") val switch: String
 )
@@ -181,7 +179,7 @@ data class ApiResponse<T>(
 
 // Odpowiedź na żądanie sterowania (może się różnić w zależności od endpointu)
 data class ToggleResponse(
-    val status: String? // np. "ok"
+    val status: String?
 )
 
 // Model wiadomości WebSocket (uproszczony)

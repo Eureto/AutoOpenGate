@@ -79,23 +79,23 @@ class LocationMonitoringService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d("LocationService", "onStartCommand")
 
-        when(intent?.action) {
-            ACTION_STOP_SERVICE -> {
-                Log.d("LocationService", "Otrzymano polecenie zatrzymania usługi.")
-                stopSelf()
-                return START_NOT_STICKY
-            }
-            ACTION_OPEN_GATE -> {
-                Log.d("LocationService", "Otrzymano polecenie otwarcia bramy.")
-                if(deviceIdToControl == null) {
-                    Log.e("LocationService", "Nieznany deviceId, nie można otworzyć bramy.")
-                    updateNotification("Błąd: Nieznany deviceId, nie można otworzyć bramy.")
-                    return START_STICKY
-                }
-                EwelinkDevices.toggleDevice(deviceIdToControl ?: "", "on")
-                return START_STICKY
-            }
-        }
+//        when(intent?.action) {
+//            ACTION_STOP_SERVICE -> {
+//                Log.d("LocationService", "Otrzymano polecenie zatrzymania usługi.")
+//                stopSelf()
+//                return START_NOT_STICKY
+//            }
+//            ACTION_OPEN_GATE -> {
+//                Log.d("LocationService", "Otrzymano polecenie otwarcia bramy.")
+//                if(deviceIdToControl == null) {
+//                    Log.e("LocationService", "Nieznany deviceId, nie można otworzyć bramy.")
+//                    updateNotification("Błąd: Nieznany deviceId, nie można otworzyć bramy.")
+//                    return START_STICKY
+//                }
+//                EwelinkDevices.toggleDevice(deviceIdToControl ?: "", "on")
+//                return START_STICKY
+//            }
+//        }
 
 
         deviceIdToControl = intent?.getStringExtra("deviceId")
@@ -170,7 +170,7 @@ class LocationMonitoringService : Service() {
             serviceChannel.enableLights(false)
             serviceChannel.enableVibration(false)
             serviceChannel.setSound(null, null)
-            serviceChannel.lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+            serviceChannel.lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
 
             notificationManager.createNotificationChannel(serviceChannel)
         }
@@ -235,7 +235,7 @@ class LocationMonitoringService : Service() {
 
         if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
             Log.e("LocationService", "Brak uprawnień do lokalizacji podczas dodawania Geofence. Nie dodaję.")
-            updateNotification("Błąd: Brak uprawnień do lokalizacji do dodania Geofence.")
+            updateNotification("Błąd: Brak uprawnień do lokalizacji przy tworzeniu geofence.")
             return
         }
 
@@ -259,7 +259,7 @@ class LocationMonitoringService : Service() {
 
         val geofencingRequest = GeofencingRequest.Builder()
             .addGeofence(geofence)
-            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER) // Sprawdź przy dodawaniu
+            .setInitialTrigger(0) // Sprawdź przy dodawaniu, 0 oznacza że nie będzie triggera jeśli użytkownik jest w strefie w czasie tworzenia geofencingu
             .build()
 
         val geofencePendingIntent: PendingIntent by lazy {

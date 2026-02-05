@@ -74,7 +74,7 @@ class MainActivity : AppCompatActivity() {
 
         if (fineLocationGranted && (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || backgroundLocationGranted)) {
             Toast.makeText(this, "Uprawnienia lokalizacji przyznane.", Toast.LENGTH_SHORT).show()
-            checkAndStartLocationMonitoring()
+            checkAndStartLocationMonitoring() // Uruchamianie usługi monitorowania lokalizacji
         } else {
             Toast.makeText(this, "Uprawnienia lokalizacji NIE przyznane. Automatyka może nie działać.", Toast.LENGTH_LONG).show()
             // TODO: Przekieruj użytkownika do ustawień, aby mógł ręcznie przyznać uprawnienia
@@ -192,7 +192,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnStartMonitoring.setOnClickListener {
-            requestLocationPermissions()
+            requestLocationPermissions() // each time when user starts monitoring firstly check if permissions are given then start monitoring
         }
 
         binding.btnStopMonitoring.setOnClickListener {
@@ -296,6 +296,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestLocationPermissions() {
         addLogMessage("zapytanie o uprawnienia do lokalizacji")
+        Log.d("MainActivity", "Zapytanie o uprawnienia do lokalizacji")
         val permissionsToRequest = mutableListOf(
             android.Manifest.permission.ACCESS_FINE_LOCATION
         )
@@ -323,7 +324,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             true // Dla starszych wersji nie ma osobnego uprawnienia do tła
         }
-
         if (!hasFineLocation || !hasBackgroundLocation) {
             Toast.makeText(this, "Brak wymaganych uprawnień lokalizacji.", Toast.LENGTH_LONG).show()
             // Ponownie poproś o uprawnienia lub przekieruj do ustawień
@@ -333,10 +333,10 @@ class MainActivity : AppCompatActivity() {
 
         // Uruchom usługę monitorowania lokalizacji
         val serviceIntent = Intent(this, LocationMonitoringService::class.java)
+        // This intent servers as bridge to the service passing the selected device ID and polygon JSON
         serviceIntent.putExtra("deviceId", selectedId)
         serviceIntent.putExtra("polygonJson", polygonJson)
-        // Jeśli chcesz przekazać referencję do WebSocketClienta, musisz użyć bindService
-        // lub stworzyć instancję w serwisie i komunikować się poprzez BroadcastReceiver/LocalBroadcastManager
+
         ContextCompat.startForegroundService(this, serviceIntent)
         addLogMessage("Uruchomionono LocationMonitorigService")
         Toast.makeText(this, "Rozpoczęto monitorowanie lokalizacji.", Toast.LENGTH_SHORT).show()
