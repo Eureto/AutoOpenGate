@@ -36,8 +36,10 @@ object EwelinkDevices{
         ensureInitialized()
         sendBroadcastLog("MainActivity toggleDevice called")
         sendBroadcastLog("Przerwarzanie toggleDevice")
+
+
         return; //TODO: Usuń ten return, jest tylko do testów, fukcja działa
-        sendBroadcastLog("This should not appear, toggleDevice did not returned early")
+
 
         val myScope = CoroutineScope(Dispatchers.IO+Job())
 

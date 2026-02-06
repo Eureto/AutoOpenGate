@@ -54,7 +54,7 @@ class LocationMonitoringService : Service() {
         const val NOTIFICATION_CHANNEL_ID = "eureto_opendoor_location_channel"
         const val NOTIFICATION_ID = 123
         const val GEOFENCE_REQUEST_ID = "home_area_geofence"
-        const val GEOFENCE_RADIUS_METERS = 500f // Promień dla symulacji wielokąta
+        const val GEOFENCE_RADIUS_METERS = 1000f // Promień dla symulacji wielokąta
         const val ACTION_GEOFENCE_TRANSITION = "eureto.opendoor.ACTION_GEOFENCE_TRANSITION"
         const val ACTION_OPEN_GATE = "eureto.opendoor.ACTION_OPEN_GATE"
         const val ACTION_STOP_SERVICE = "eureto.opendoor.ACTION_STOP_SERVICE"
@@ -78,25 +78,6 @@ class LocationMonitoringService : Service() {
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d("LocationService", "onStartCommand")
-
-//        when(intent?.action) {
-//            ACTION_STOP_SERVICE -> {
-//                Log.d("LocationService", "Otrzymano polecenie zatrzymania usługi.")
-//                stopSelf()
-//                return START_NOT_STICKY
-//            }
-//            ACTION_OPEN_GATE -> {
-//                Log.d("LocationService", "Otrzymano polecenie otwarcia bramy.")
-//                if(deviceIdToControl == null) {
-//                    Log.e("LocationService", "Nieznany deviceId, nie można otworzyć bramy.")
-//                    updateNotification("Błąd: Nieznany deviceId, nie można otworzyć bramy.")
-//                    return START_STICKY
-//                }
-//                EwelinkDevices.toggleDevice(deviceIdToControl ?: "", "on")
-//                return START_STICKY
-//            }
-//        }
-
 
         deviceIdToControl = intent?.getStringExtra("deviceId")
         val polygonJson = intent?.getStringExtra("polygonJson")
@@ -224,6 +205,7 @@ class LocationMonitoringService : Service() {
 
     private fun addGeofences() {
         sendLogToMainActivity("Wykonuję funkcję addGeofences()")
+        // Permission Check
         val hasFineLocationPermission = ContextCompat.checkSelfPermission(
             this,
             android.Manifest.permission.ACCESS_FINE_LOCATION
@@ -236,6 +218,16 @@ class LocationMonitoringService : Service() {
         if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
             Log.e("LocationService", "Brak uprawnień do lokalizacji podczas dodawania Geofence. Nie dodaję.")
             updateNotification("Błąd: Brak uprawnień do lokalizacji przy tworzeniu geofence.")
+            return
+        }
+
+        // Check Google Play Services availability
+        val gpa = com.google.android.gms.common.GoogleApiAvailability.getInstance()
+        val playServicesStatus = gpa.isGooglePlayServicesAvailable(this)
+        if (playServicesStatus != com.google.android.gms.common.ConnectionResult.SUCCESS) {
+            val msg = "Google Play Services niedostępne (kod $playServicesStatus). Nie można dodać geofence."
+            Log.e("LocationService", msg)
+            updateNotification("Błąd: $msg")
             return
         }
 
@@ -254,7 +246,6 @@ class LocationMonitoringService : Service() {
             .setCircularRegion(centroid.latitude, centroid.longitude, GEOFENCE_RADIUS_METERS)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
-            .setLoiteringDelay(5000) // Opóźnienie przed wyzwoleniem zdarzenia DWELL
             .build()
 
         val geofencingRequest = GeofencingRequest.Builder()
@@ -266,7 +257,7 @@ class LocationMonitoringService : Service() {
             val intent = Intent(this, GeofenceTransitionsReceiver::class.java).apply {
                 action = ACTION_GEOFENCE_TRANSITION
             }
-            PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
         }
 
         geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent)
@@ -276,7 +267,24 @@ class LocationMonitoringService : Service() {
             }
             .addOnFailureListener { e ->
                 Log.e("LocationService", "Błąd dodawania Geofence: ${e.message}", e)
-                updateNotification("Monitorowanie błąd: ${e.message}")
+                if (e is com.google.android.gms.common.api.ApiException) {
+                    when (e.statusCode) {
+                        com.google.android.gms.location.GeofenceStatusCodes.GEOFENCE_NOT_AVAILABLE -> {
+                            updateNotification("Błąd geofencingu: usługa geofence niedostępna (kod 1000). Upewnij się, że precyzyjna lokalizacja jest włączona")
+                        }
+                        com.google.android.gms.location.GeofenceStatusCodes.GEOFENCE_TOO_MANY_GEOFENCES -> {
+                            updateNotification("Błąd geofencingu: za dużo geofence'ów (kod 1001). Usuń niepotrzebne geofency lub zresetuj aplikację.")
+                        }
+                        com.google.android.gms.location.GeofenceStatusCodes.GEOFENCE_TOO_MANY_PENDING_INTENTS -> {
+                            updateNotification("Błąd geofencingu: za dużo PendingIntent (kod 1002).")
+                        }
+                        else -> {
+                            updateNotification("Błąd dodawania Geofence: ${e.statusCode} - ${e.message}")
+                        }
+                    }
+                } else {
+                    updateNotification("Błąd dodawania Geofence: ${e?.message}")
+                }
             }
     }
 

@@ -4,7 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     xmlns:tools="http://schemas.android.com/tools"
-    tools:context="eureto.opendoor.ui.MainActivity">
+    tools:context="eureto.opendoor.ui.MainActivity"
+    android:fitsSystemWindows="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -123,16 +124,14 @@
             android:textSize="18sp"
             android:visibility="gone" />
 
-
-        <!-- Add ComposeView for the logging box -->
-        <androidx.compose.ui.platform.ComposeView
-            android:id="@+id/compose_log_view"
+        <Button
+            android:id="@+id/btnShowLogMessages"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="8dp" />
+            android:text="Pokaż logi"
+            android:padding="12dp"
+            android:textSize="18sp"
+            android:visibility="visible" />
 
     </LinearLayout>
 </ScrollView>

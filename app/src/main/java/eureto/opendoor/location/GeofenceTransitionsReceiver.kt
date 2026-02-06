@@ -66,6 +66,9 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
     //
     override fun onReceive(context: Context?, intent: Intent?) {
+        Log.d("GeofenceReceiver", "Otrzymano złgłoszenie Geofence")
+        sendLogToMainActivity( context ?: return, "Otrzymano złgłoszenie Geofence")
+
         if (context == null || intent?.action != LocationMonitoringService.ACTION_GEOFENCE_TRANSITION) {
             Log.e("GeofenceReceiver", "Nieznana akcja lub brak kontekstu: ${intent?.action}")
             return
@@ -115,11 +118,23 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         when (geofenceTransition) {
             Geofence.GEOFENCE_TRANSITION_ENTER -> {
                 Log.d("GeofenceReceiver", "Zdarzenie GEOFENCE_TRANSITION_ENTER")
-                performLocationCheck(context, deviceId, polygonCoordinates, appPreferences)
+                // keep the BroadcastReceiver alive while we do async work
+                val pendingResult = goAsync()
+                scope.launch {
+                    try {
+                        performLocationCheck(context, deviceId, polygonCoordinates, appPreferences)
+                    } finally {
+                        pendingResult.finish()
+                    }
+                }
             }
 
+            //TODO: Dodaj obsługe zdarzenia EXIT w geofence receiver
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 Log.d("GeofenceReceiver", "Zdarzenie GEOFENCE_TRANSITION_EXIT")
+                sendLogToMainActivity(context, "Zdarzenie GEOFENCE_TRANSITION_EXIT ale robie return")
+                return // usuń
+
                 if (false) { // Upewnij się, że faktycznie jesteś poza wielokątem
                     Log.d("GeofenceReceiver", "Lokalizacja poza wielokątem. Opuściłeś teren.")
                     sendNotification(context, "Opuściłeś teren. Brama zostanie wyłączona.")
@@ -230,7 +245,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
     // This functions handles everything after user enters geofence area
     // It check location of user for 10 minutes and if user enters selected are it opens the gate
     // If user doesn't enter selected area it does nothing
-    private fun performLocationCheck(
+    private suspend fun performLocationCheck(
         context: Context,
         deviceId: String,
         polygonCoordinates: List<LatLng>,
@@ -260,46 +275,57 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         val timeSource = TimeSource.Monotonic
         val markStart = timeSource.markNow()
         var timeElapsedInMinutes: Long = 0
-        var gateOpened: Boolean = false;
+        var gateOpened: Boolean = false
 
-        while(timeElapsedInMinutes < 10 && !gateOpened) {
+        while (timeElapsedInMinutes < 10 && !gateOpened) {
             try {
-                fusedLocationClient.getCurrentLocation(
-                    Priority.PRIORITY_HIGH_ACCURACY,
+                // Use a CancellationToken so we can use await() and make this call suspend-friendly
+                val cts = CancellationTokenSource()
+                val location: Location? = try {
+                    fusedLocationClient.getCurrentLocation(
+                        Priority.PRIORITY_HIGH_ACCURACY,
+                        cts.token
+                    ).await()
+                } catch (e: Exception) {
+                    Log.e("GeofenceReceiver", "Błąd pobierania lokalizacji: ${e.message}")
                     null
-                ).addOnSuccessListener { location: Location? ->
-                    if (location != null) {
-                        //getting current location of user
-                        val currentLocation = LatLng(location.latitude, location.longitude)
-                        sendLogToMainActivity(context, "Aktualna lokalizacja: $currentLocation");
+                }
 
-                        val isNowInsidePolygon =
-                            PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
+                if (location != null) {
+                    // getting current location of user
+                    val currentLocation = LatLng(location.latitude, location.longitude)
+                    sendLogToMainActivity(context, "Aktualna lokalizacja: $currentLocation")
 
-                        if (isNowInsidePolygon) {
-                            Log.d(
-                                "GeofenceReceiver",
-                                "Użytkownik wrócił do obszaru. Włączam bramę."
-                            )
-                            sendLogToMainActivity(
-                                context,
-                                "Użytkownik wrócił do obszaru. Włączam bramę."
-                            );
-                            sendNotification(context, "Wróciłeś do domu! Uruchamiam bramę...")
-                            EwelinkDevices.toggleDevice(deviceId, "on")
-                            gateOpened = true;
-                        }
+                    val isNowInsidePolygon =
+                        PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
+
+                    if (isNowInsidePolygon) {
+                        Log.d(
+                            "GeofenceReceiver",
+                            "Użytkownik wrócił do obszaru. Włączam bramę."
+                        )
+                        sendLogToMainActivity(
+                            context,
+                            "Użytkownik wrócił do obszaru. Włączam bramę."
+                        )
+                        sendNotification(context, "Wróciłeś do domu! Uruchamiam bramę...")
+                        EwelinkDevices.toggleDevice(deviceId, "on")
+                        gateOpened = true
                     }
                 }
+
             } catch (e: Exception) {
                 Log.e("GeofenceReceiver", "Błąd podczas sprawdzania lokalizacji: ${e.message}", e)
                 sendNotification(context, "Błąd podczas sprawdzania lokalizacji")
             }
 
+            // small delay to avoid a tight loop - adjust as needed
+            if (!gateOpened) delay(TimeUnit.SECONDS.toMillis(5))
+
             timeElapsedInMinutes = markStart.elapsedNow().inWholeMinutes
             Log.d(
                 "GeofenceReceiver",
-                "Aktualnie sprawdzanie traw już $timeElapsedInMinutes minut"
+                "Aktualnie sprawdzanie trwa już $timeElapsedInMinutes minut"
             )
         }
     }

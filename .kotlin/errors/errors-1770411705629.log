@@ -1,0 +1,200 @@
+kotlin version: 2.2.10
+error message: java.lang.RuntimeException: Exception while generating code for:
+FUN name:readLogMessages visibility:public modality:FINAL returnType:kotlin.Unit
+  VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:eureto.opendoor.ui.MainActivity
+  BLOCK_BODY
+    COMPOSITE type=kotlin.Unit origin=null
+      VAR name:log type:kotlin.jvm.internal.Ref.ObjectRef<kotlin.String> [val]
+        CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.jvm.internal.Ref.ObjectRef' type=kotlin.jvm.internal.Ref.ObjectRef<kotlin.String> origin=null
+          TYPE_ARG (of class) T: kotlin.String
+      SET_FIELD 'FIELD IR_BUILTINS_STUB name:element type:T of kotlin.jvm.internal.Ref.ObjectRef visibility:public declared in kotlin.jvm.internal.Ref.ObjectRef' type=kotlin.Unit origin=null
+        receiver: GET_VAR 'val log: kotlin.jvm.internal.Ref.ObjectRef<kotlin.String> [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=kotlin.jvm.internal.Ref.ObjectRef<kotlin.String> origin=null
+        value: TRY type=kotlin.String
+          try: BLOCK type=kotlin.String origin=null
+            CALL 'public final fun useLines <T> (<this>: java.io.Reader, block: kotlin.Function1<kotlin.sequences.Sequence<kotlin.String>, T of kotlin.io.TextStreamsKt.useLines>): T of kotlin.io.TextStreamsKt.useLines [inline] declared in kotlin.io.TextStreamsKt' type=kotlin.String origin=null
+              TYPE_ARG T: kotlin.String
+              ARG <this>: CALL 'public/*package*/ final fun bufferedReader$default (<this>: java.io.InputStream, charset: java.nio.charset.Charset?, $mask0: kotlin.Int, $handler: kotlin.Any?): java.io.BufferedReader [inline] declared in kotlin.io.ByteStreamsKt' type=java.io.BufferedReader origin=DEFAULT_DISPATCH_CALL
+                ARG <this>: BLOCK type=java.io.FileInputStream origin=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp0 type:kotlin.Any? [val]
+                    CALL 'public open fun openFileInput (p0: @[FlexibleNullability] kotlin.String?): @[FlexibleNullability] java.io.FileInputStream? [fake_override] declared in eureto.opendoor.ui.MainActivity' type=@[FlexibleNullability] java.io.FileInputStream? origin=null
+                      ARG <this>: GET_VAR '<this>: eureto.opendoor.ui.MainActivity declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=eureto.opendoor.ui.MainActivity origin=null
+                      ARG p0: GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:logFileName type:kotlin.String visibility:private [final]' type=kotlin.String origin=null
+                        receiver: GET_VAR '<this>: eureto.opendoor.ui.MainActivity declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=eureto.opendoor.ui.MainActivity origin=IMPLICIT_ARGUMENT
+                  CALL 'public final fun checkNotNullExpressionValue (value: kotlin.Any?, expression: kotlin.String): kotlin.Unit declared in kotlin.jvm.internal.Intrinsics' type=kotlin.Unit origin=null
+                    ARG value: GET_VAR 'val tmp0: kotlin.Any? [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=kotlin.Any? origin=null
+                    ARG expression: CONST String type=kotlin.String value="openFileInput(...)"
+                  GET_VAR 'val tmp0: kotlin.Any? [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=kotlin.Any? origin=null
+                ARG charset: COMPOSITE type=java.nio.charset.Charset? origin=DEFAULT_VALUE
+                  CONST Null type=java.nio.charset.Charset? value=null
+                ARG $mask0: CONST Int type=kotlin.Int value=1
+                ARG $handler: CONST Null type=kotlin.Any? value=null
+              ARG block: BLOCK type=kotlin.Function1<kotlin.sequences.Sequence<kotlin.String>, kotlin.String> origin=LAMBDA
+                COMPOSITE type=kotlin.Unit origin=null
+                FUNCTION_REFERENCE 'private final fun readLogMessages$lambda$12 (lines: kotlin.sequences.Sequence<kotlin.String>): kotlin.String declared in eureto.opendoor.ui.MainActivity' type=kotlin.Function1<kotlin.sequences.Sequence<kotlin.String>, kotlin.String> origin=INLINE_LAMBDA reflectionTarget=null
+          CATCH parameter=val e: java.lang.Exception [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages
+            VAR CATCH_PARAMETER name:e type:java.lang.Exception [val]
+            BLOCK type=kotlin.String origin=null
+              CONST String type=kotlin.String value="Brak logów lub błąd odczytu."
+    VAR name:bottomSheetDialog type:com.google.android.material.bottomsheet.BottomSheetDialog [val]
+      CONSTRUCTOR_CALL 'public constructor <init> (p0: @[EnhancedNullability] android.content.Context) declared in com.google.android.material.bottomsheet.BottomSheetDialog' type=com.google.android.material.bottomsheet.BottomSheetDialog origin=null
+        ARG p0: GET_VAR '<this>: eureto.opendoor.ui.MainActivity declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=eureto.opendoor.ui.MainActivity origin=null
+    VAR name:layout type:android.widget.LinearLayout [val]
+      CALL 'public final fun apply <T> (<this>: T of kotlin.StandardKt.apply, block: @[ExtensionFunctionType] kotlin.Function1<T of kotlin.StandardKt.apply, kotlin.Unit>): T of kotlin.StandardKt.apply [inline] declared in kotlin.StandardKt' type=android.widget.LinearLayout origin=null
+        TYPE_ARG T: android.widget.LinearLayout
+        ARG <this>: CONSTRUCTOR_CALL 'public constructor <init> (p0: @[FlexibleNullability] android.content.Context?) declared in android.widget.LinearLayout' type=android.widget.LinearLayout origin=null
+          ARG p0: GET_VAR '<this>: eureto.opendoor.ui.MainActivity declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=eureto.opendoor.ui.MainActivity origin=null
+        ARG block: BLOCK type=@[ExtensionFunctionType] kotlin.Function1<android.widget.LinearLayout, kotlin.Unit> origin=LAMBDA
+          COMPOSITE type=kotlin.Unit origin=null
+          FUNCTION_REFERENCE 'private final fun readLogMessages$lambda$13 ($this$apply: android.widget.LinearLayout): kotlin.Unit declared in eureto.opendoor.ui.MainActivity' type=@[ExtensionFunctionType] kotlin.Function1<android.widget.LinearLayout, kotlin.Unit> origin=INLINE_LAMBDA reflectionTarget=null
+    VAR name:handle type:android.view.View [val]
+      CALL 'public final fun apply <T> (<this>: T of kotlin.StandardKt.apply, block: @[ExtensionFunctionType] kotlin.Function1<T of kotlin.StandardKt.apply, kotlin.Unit>): T of kotlin.StandardKt.apply [inline] declared in kotlin.StandardKt' type=android.view.View origin=null
+        TYPE_ARG T: android.view.View
+        ARG <this>: CONSTRUCTOR_CALL 'public constructor <init> (p0: @[FlexibleNullability] android.content.Context?) declared in android.view.View' type=android.view.View origin=null
+          ARG p0: GET_VAR '<this>: eureto.opendoor.ui.MainActivity declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=eureto.opendoor.ui.MainActivity origin=null
+        ARG block: BLOCK type=@[ExtensionFunctionType] kotlin.Function1<android.view.View, kotlin.Unit> origin=LAMBDA
+          COMPOSITE type=kotlin.Unit origin=null
+          FUNCTION_REFERENCE 'private final fun readLogMessages$lambda$14 ($this$apply: android.view.View): kotlin.Unit declared in eureto.opendoor.ui.MainActivity' type=@[ExtensionFunctionType] kotlin.Function1<android.view.View, kotlin.Unit> origin=INLINE_LAMBDA reflectionTarget=null
+    CALL 'public open fun addView (p0: @[FlexibleNullability] android.view.View?): kotlin.Unit [fake_override] declared in android.widget.LinearLayout' type=kotlin.Unit origin=null
+      ARG <this>: GET_VAR 'val layout: android.widget.LinearLayout [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=android.widget.LinearLayout origin=null
+      ARG p0: GET_VAR 'val handle: android.view.View [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=android.view.View origin=null
+    VAR name:title type:android.widget.TextView [val]
+      CALL 'public final fun apply <T> (<this>: T of kotlin.StandardKt.apply, block: @[ExtensionFunctionType] kotlin.Function1<T of kotlin.StandardKt.apply, kotlin.Unit>): T of kotlin.StandardKt.apply [inline] declared in kotlin.StandardKt' type=android.widget.TextView origin=null
+        TYPE_ARG T: android.widget.TextView
+        ARG <this>: CONSTRUCTOR_CALL 'public constructor <init> (p0: @[FlexibleNullability] android.content.Context?) declared in android.widget.TextView' type=android.widget.TextView origin=null
+          ARG p0: GET_VAR '<this>: eureto.opendoor.ui.MainActivity declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=eureto.opendoor.ui.MainActivity origin=null
+        ARG block: BLOCK type=@[ExtensionFunctionType] kotlin.Function1<android.widget.TextView, kotlin.Unit> origin=LAMBDA
+          COMPOSITE type=kotlin.Unit origin=null
+          FUNCTION_REFERENCE 'private final fun readLogMessages$lambda$15 ($this$apply: android.widget.TextView): kotlin.Unit declared in eureto.opendoor.ui.MainActivity' type=@[ExtensionFunctionType] kotlin.Function1<android.widget.TextView, kotlin.Unit> origin=INLINE_LAMBDA reflectionTarget=null
+    CALL 'public open fun addView (p0: @[FlexibleNullability] android.view.View?): kotlin.Unit [fake_override] declared in android.widget.LinearLayout' type=kotlin.Unit origin=null
+      ARG <this>: GET_VAR 'val layout: android.widget.LinearLayout [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=android.widget.LinearLayout origin=null
+      ARG p0: GET_VAR 'val title: android.widget.TextView [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=android.widget.TextView origin=null
+    VAR name:scrollView type:android.widget.ScrollView [val]
+      CALL 'public final fun apply <T> (<this>: T of kotlin.StandardKt.apply, block: @[ExtensionFunctionType] kotlin.Function1<T of kotlin.StandardKt.apply, kotlin.Unit>): T of kotlin.StandardKt.apply [inline] declared in kotlin.StandardKt' type=android.widget.ScrollView origin=null
+        TYPE_ARG T: android.widget.ScrollView
+        ARG <this>: CONSTRUCTOR_CALL 'public constructor <init> (p0: @[FlexibleNullability] android.content.Context?) declared in android.widget.ScrollView' type=android.widget.ScrollView origin=null
+          ARG p0: GET_VAR '<this>: eureto.opendoor.ui.MainActivity declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=eureto.opendoor.ui.MainActivity origin=null
+        ARG block: BLOCK type=@[ExtensionFunctionType] kotlin.Function1<android.widget.ScrollView, kotlin.Unit> origin=LAMBDA
+          COMPOSITE type=kotlin.Unit origin=null
+          FUNCTION_REFERENCE 'private final fun readLogMessages$lambda$16 ($this$apply: android.widget.ScrollView): kotlin.Unit declared in eureto.opendoor.ui.MainActivity' type=@[ExtensionFunctionType] kotlin.Function1<android.widget.ScrollView, kotlin.Unit> origin=INLINE_LAMBDA reflectionTarget=null
+    VAR name:textView type:android.widget.TextView [val]
+      CALL 'public final fun apply <T> (<this>: T of kotlin.StandardKt.apply, block: @[ExtensionFunctionType] kotlin.Function1<T of kotlin.StandardKt.apply, kotlin.Unit>): T of kotlin.StandardKt.apply [inline] declared in kotlin.StandardKt' type=android.widget.TextView origin=null
+        TYPE_ARG T: android.widget.TextView
+        ARG <this>: CONSTRUCTOR_CALL 'public constructor <init> (p0: @[FlexibleNullability] android.content.Context?) declared in android.widget.TextView' type=android.widget.TextView origin=null
+          ARG p0: GET_VAR '<this>: eureto.opendoor.ui.MainActivity declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=eureto.opendoor.ui.MainActivity origin=null
+        ARG block: BLOCK type=@[ExtensionFunctionType] kotlin.Function1<android.widget.TextView, kotlin.Unit> origin=LAMBDA
+          COMPOSITE type=kotlin.Unit origin=null
+          FUNCTION_REFERENCE 'private final fun readLogMessages$lambda$17 ($this$apply: android.widget.TextView, $log: kotlin.jvm.internal.Ref.ObjectRef<kotlin.String>): kotlin.Unit declared in eureto.opendoor.ui.MainActivity' type=@[ExtensionFunctionType] kotlin.Function1<android.widget.TextView, kotlin.Unit> origin=INLINE_LAMBDA reflectionTarget=null
+            ARG $log: GET_VAR 'val log: kotlin.jvm.internal.Ref.ObjectRef<kotlin.String> [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=kotlin.jvm.internal.Ref.ObjectRef<kotlin.String> origin=null
+    CALL 'public open fun addView (p0: @[FlexibleNullability] android.view.View?): kotlin.Unit declared in android.widget.ScrollView' type=kotlin.Unit origin=null
+      ARG <this>: GET_VAR 'val scrollView: android.widget.ScrollView [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=android.widget.ScrollView origin=null
+      ARG p0: GET_VAR 'val textView: android.widget.TextView [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=android.widget.TextView origin=null
+    CALL 'public open fun addView (p0: @[FlexibleNullability] android.view.View?): kotlin.Unit [fake_override] declared in android.widget.LinearLayout' type=kotlin.Unit origin=null
+      ARG <this>: GET_VAR 'val layout: android.widget.LinearLayout [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=android.widget.LinearLayout origin=null
+      ARG p0: GET_VAR 'val scrollView: android.widget.ScrollView [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=android.widget.ScrollView origin=null
+    CALL 'public open fun setContentView (p0: @[EnhancedNullability] android.view.View): kotlin.Unit declared in com.google.android.material.bottomsheet.BottomSheetDialog' type=kotlin.Unit origin=null
+      ARG <this>: GET_VAR 'val bottomSheetDialog: com.google.android.material.bottomsheet.BottomSheetDialog [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=com.google.android.material.bottomsheet.BottomSheetDialog origin=null
+      ARG p0: GET_VAR 'val layout: android.widget.LinearLayout [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=android.widget.LinearLayout origin=null
+    CALL 'public open fun show (): kotlin.Unit [fake_override] declared in com.google.android.material.bottomsheet.BottomSheetDialog' type=kotlin.Unit origin=null
+      ARG <this>: GET_VAR 'val bottomSheetDialog: com.google.android.material.bottomsheet.BottomSheetDialog [val] declared in eureto.opendoor.ui.MainActivity.readLogMessages' type=com.google.android.material.bottomsheet.BottomSheetDialog origin=null
+
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.generate(FunctionCodegen.kt:50)
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.generate$default(FunctionCodegen.kt:43)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen.generateMethodNode(ClassCodegen.kt:422)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen.generateMethod(ClassCodegen.kt:439)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen.generate(ClassCodegen.kt:164)
+	at org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory.generateFile(JvmIrCodegenFactory.kt:419)
+	at org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory.invokeCodegen(JvmIrCodegenFactory.kt:388)
+	at org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler.runCodegen$cli(KotlinToJVMBytecodeCompiler.kt:431)
+	at org.jetbrains.kotlin.cli.pipeline.jvm.JvmBackendPipelinePhase.executePhase(JvmBackendPipelinePhase.kt:95)
+	at org.jetbrains.kotlin.cli.pipeline.jvm.JvmBackendPipelinePhase.executePhase(JvmBackendPipelinePhase.kt:36)
+	at org.jetbrains.kotlin.cli.pipeline.jvm.JvmBackendPipelinePhase.executePhase(JvmBackendPipelinePhase.kt:29)
+	at org.jetbrains.kotlin.cli.pipeline.PipelinePhase.phaseBody(PipelinePhase.kt:68)
+	at org.jetbrains.kotlin.cli.pipeline.PipelinePhase.phaseBody(PipelinePhase.kt:58)
+	at org.jetbrains.kotlin.config.phaser.NamedCompilerPhase.invoke(CompilerPhase.kt:102)
+	at org.jetbrains.kotlin.backend.common.phaser.CompositePhase.invoke(PhaseBuilders.kt:22)
+	at org.jetbrains.kotlin.config.phaser.CompilerPhaseKt.invokeToplevel(CompilerPhase.kt:53)
+	at org.jetbrains.kotlin.cli.pipeline.AbstractCliPipeline.runPhasedPipeline(AbstractCliPipeline.kt:109)
+	at org.jetbrains.kotlin.cli.pipeline.AbstractCliPipeline.execute(AbstractCliPipeline.kt:68)
+	at org.jetbrains.kotlin.cli.jvm.K2JVMCompiler.doExecutePhased(K2JVMCompiler.kt:78)
+	at org.jetbrains.kotlin.cli.jvm.K2JVMCompiler.doExecutePhased(K2JVMCompiler.kt:44)
+	at org.jetbrains.kotlin.cli.common.CLICompiler.execImpl(CLICompiler.kt:90)
+	at org.jetbrains.kotlin.cli.common.CLICompiler.exec(CLICompiler.kt:352)
+	at org.jetbrains.kotlin.incremental.IncrementalJvmCompilerRunnerBase.runCompiler(IncrementalJvmCompilerRunnerBase.kt:175)
+	at org.jetbrains.kotlin.incremental.IncrementalJvmCompilerRunnerBase.runCompiler(IncrementalJvmCompilerRunnerBase.kt:38)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.doCompile(IncrementalCompilerRunner.kt:504)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compileImpl(IncrementalCompilerRunner.kt:421)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compileNonIncrementally(IncrementalCompilerRunner.kt:306)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compile(IncrementalCompilerRunner.kt:133)
+	at org.jetbrains.kotlin.daemon.CompileServiceImplBase.execIncrementalCompiler(CompileServiceImpl.kt:679)
+	at org.jetbrains.kotlin.daemon.CompileServiceImplBase.access$execIncrementalCompiler(CompileServiceImpl.kt:93)
+	at org.jetbrains.kotlin.daemon.CompileServiceImpl.compile(CompileServiceImpl.kt:1806)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(Unknown Source)
+	at java.base/java.lang.reflect.Method.invoke(Unknown Source)
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(Unknown Source)
+	at java.rmi/sun.rmi.transport.Transport$1.run(Unknown Source)
+	at java.rmi/sun.rmi.transport.Transport$1.run(Unknown Source)
+	at java.base/java.security.AccessController.doPrivileged(Unknown Source)
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Unknown Source)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(Unknown Source)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(Unknown Source)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(Unknown Source)
+	at java.base/java.security.AccessController.doPrivileged(Unknown Source)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: java.lang.RuntimeException: Exception while generating code for:
+FUN INLINE_LAMBDA name:readLogMessages$lambda$17 visibility:private modality:FINAL returnType:kotlin.Unit
+  VALUE_PARAMETER kind:ExtensionReceiver name:$this$apply index:0 type:android.widget.TextView
+  VALUE_PARAMETER BOUND_VALUE_PARAMETER kind:Regular name:$log index:1 type:kotlin.jvm.internal.Ref.ObjectRef<kotlin.String>
+  BLOCK_BODY
+    VAR name:$i$a$-apply-MainActivity$readLogMessages$textView$1 type:kotlin.Int [val]
+      CONST Int type=kotlin.Int value=0
+    CALL 'public final fun setText (p0: @[FlexibleNullability] kotlin.CharSequence?): kotlin.Unit declared in android.widget.TextView' type=kotlin.Unit origin=EQ
+      ARG <this>: GET_VAR '$this$apply: android.widget.TextView declared in eureto.opendoor.ui.MainActivity.readLogMessages$lambda$17' type=android.widget.TextView origin=null
+      ARG p0: GET_FIELD 'FIELD IR_BUILTINS_STUB name:element type:T of kotlin.jvm.internal.Ref.ObjectRef visibility:public declared in kotlin.jvm.internal.Ref.ObjectRef' type=kotlin.String origin=null
+        receiver: GET_VAR '$log: kotlin.jvm.internal.Ref.ObjectRef<kotlin.String> declared in eureto.opendoor.ui.MainActivity.readLogMessages$lambda$17' type=kotlin.jvm.internal.Ref.ObjectRef<kotlin.String> origin=null
+    CALL 'public open fun setTextSize (p0: kotlin.Float): kotlin.Unit declared in android.widget.TextView' type=kotlin.Unit origin=EQ
+      ARG <this>: GET_VAR '$this$apply: android.widget.TextView declared in eureto.opendoor.ui.MainActivity.readLogMessages$lambda$17' type=android.widget.TextView origin=null
+      ARG p0: CONST Float type=kotlin.Float value=14.0
+    SET_FIELD 'FIELD IR_EXTERNAL_JAVA_DECLARATION_STUB name:fontFamily type:kotlin.Int visibility:public [final,static] declared in android.R.attr' type=kotlin.Unit superQualifierSymbol=android.R.attr origin=EQ
+      value: CONST Int type=kotlin.Int value=1
+
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.generate(FunctionCodegen.kt:50)
+	at org.jetbrains.kotlin.backend.jvm.codegen.IrSourceCompilerForInline.generateLambdaBody(IrSourceCompilerForInline.kt:72)
+	at org.jetbrains.kotlin.codegen.inline.ExpressionLambda.generateLambdaBody(LambdaInfo.kt:72)
+	at org.jetbrains.kotlin.backend.jvm.codegen.IrInlineCodegen.genValueAndPut(IrInlineCodegen.kt:122)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitCall$handleParameter(ExpressionCodegen.kt:564)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitCall(ExpressionCodegen.kt:577)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitCall(ExpressionCodegen.kt:135)
+	at org.jetbrains.kotlin.ir.expressions.IrCall.accept(IrCall.kt:24)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitVariable(ExpressionCodegen.kt:725)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitVariable(ExpressionCodegen.kt:135)
+	at org.jetbrains.kotlin.ir.declarations.IrVariable.accept(IrVariable.kt:36)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitStatementContainer(ExpressionCodegen.kt:527)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitBlockBody(ExpressionCodegen.kt:532)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitBlockBody(ExpressionCodegen.kt:135)
+	at org.jetbrains.kotlin.ir.expressions.IrBlockBody.accept(IrBlockBody.kt:20)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.generate(ExpressionCodegen.kt:233)
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.doGenerate(FunctionCodegen.kt:126)
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.generate(FunctionCodegen.kt:47)
+	... 45 more
+Caused by: java.lang.AssertionError: access of const val: SET_FIELD 'FIELD IR_EXTERNAL_JAVA_DECLARATION_STUB name:fontFamily type:kotlin.Int visibility:public [final,static] declared in android.R.attr' type=kotlin.Unit superQualifierSymbol=android.R.attr origin=EQ
+  value: CONST Int type=kotlin.Int value=1
+
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitFieldAccess(ExpressionCodegen.kt:807)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitFieldAccess(ExpressionCodegen.kt:135)
+	at org.jetbrains.kotlin.ir.visitors.IrVisitor.visitSetField(IrVisitor.kt:215)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitSetField(ExpressionCodegen.kt:858)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitSetField(ExpressionCodegen.kt:135)
+	at org.jetbrains.kotlin.ir.expressions.IrSetField.accept(IrSetField.kt:21)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitStatementContainer(ExpressionCodegen.kt:527)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitBlockBody(ExpressionCodegen.kt:532)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitBlockBody(ExpressionCodegen.kt:135)
+	at org.jetbrains.kotlin.ir.expressions.IrBlockBody.accept(IrBlockBody.kt:20)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.generate(ExpressionCodegen.kt:233)
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.doGenerate(FunctionCodegen.kt:126)
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.generate(FunctionCodegen.kt:47)
+	... 62 more
+
+

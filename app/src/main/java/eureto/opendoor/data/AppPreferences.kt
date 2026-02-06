@@ -92,6 +92,7 @@ class AppPreferences(private val context: Context) {
         }
     }
     // Saves polygon center as "latitude,longitude" string
+
     fun savePolygonCenter(latLng: com.google.android.gms.maps.model.LatLng) {
         with(encryptedSharedPreferences.edit()) {
             putString("polygon_center", "${latLng.latitude},${latLng.longitude}")

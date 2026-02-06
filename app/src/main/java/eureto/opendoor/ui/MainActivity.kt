@@ -1,5 +1,7 @@
 package eureto.opendoor.ui
 
+import android.R.attr.fontFamily
+import eureto.opendoor.R
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -10,10 +12,16 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import android.view.Gravity
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.border
@@ -21,6 +29,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,6 +46,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.setMargins
+import androidx.core.view.setPadding
 import androidx.lifecycle.lifecycleScope
 import eureto.opendoor.data.AppPreferences // Zmień nazwę pakietu
 import eureto.opendoor.databinding.ActivityMainBinding // Zmień nazwę pakietu
@@ -49,13 +60,18 @@ import eureto.opendoor.network.model.DeviceControlRequest
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.LatLng
 import eureto.opendoor.network.EwelinkDevices
 import java.text.SimpleDateFormat
 import java.util.Date // Upewnij się, że ten import jest obecny
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlin.concurrent.write
 
 class MainActivity : AppCompatActivity() {
 
-    private val logMessages = mutableStateListOf<String>()
+    private val logFileName: String = "log.txt"
     private lateinit var binding: ActivityMainBinding
     private lateinit var appPreferences: AppPreferences
     private lateinit var ewelinkApiClient: EwelinkApiClient
@@ -123,12 +139,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        binding.composeLogView.setContent { // Use the ID from your XML
-            // You can wrap this in your app's MaterialTheme if you have one defined for Compose
-            MaterialTheme { // Using a default MaterialTheme for simplicity
-                LoggingScreen(logMessages = logMessages)
-            }
-        }
         // Example: Log when the activity is created
         addLogMessage("MainActivity onCreate called")
         setupLogReceiver()
@@ -143,10 +153,11 @@ class MainActivity : AppCompatActivity() {
         updateMonitoringStatusUI()
     }
 
-    fun addLogMessage(message: String) {
-        val timestamp = SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(Date())
-        val fullMessage = "[$timestamp] $message"
-        logMessages.add(fullMessage)
+    override fun onDestroy() {
+        super.onDestroy()
+        logReceiver?.let {
+            LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
+        }
     }
 
     private fun setupUI() {
@@ -199,6 +210,10 @@ class MainActivity : AppCompatActivity() {
             stopLocationMonitoringService()
             updateMonitoringStatusUI()
         }
+        binding.btnShowLogMessages.setOnClickListener {
+            readLogMessages()
+        }
+
 
         // Ustaw domyślne wartości lub pobierz z SharedPreferences
         val savedDeviceId = appPreferences.getSelectedDeviceId()
@@ -207,12 +222,135 @@ class MainActivity : AppCompatActivity() {
             selectedDeviceId = savedDeviceId
             binding.tvSelectedDevice.text = "Wybrane urządzenie: $savedDeviceName"
             binding.btnToggleDevice.isEnabled = true
-        } else {
+        }
+        else {
             binding.tvSelectedDevice.text = "Wybrane urządzenie: Brak"
             binding.btnToggleDevice.isEnabled = false
         }
         updateMonitoringButtons()
         updateMonitoringStatusUI()
+    }
+
+    fun addLogMessage(message: String) {
+        val timestamp = SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(Date())
+        val fullMessage = "[$timestamp] $message\n"
+
+        try {
+            this.openFileOutput(logFileName, Context.MODE_APPEND).use { output ->
+                output.write(fullMessage.toByteArray())
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Błąd zapisu logów: ${e.message}")
+        }
+    }
+
+    fun readLogMessages(){
+        var log: String = try {
+            this.openFileInput(logFileName).bufferedReader().useLines { lines ->
+                lines.joinToString("\n")
+            }
+        } catch (e: Exception) {
+            "Brak logów lub błąd odczytu."
+        }
+
+        // Create the BottomSheetDialog
+        val bottomSheetDialog = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 60)
+            setBackgroundResource(R.drawable.bg_bottom_sheet)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+
+        }
+
+
+        val handle = View(this).apply {
+            val params = LinearLayout.LayoutParams(100, 12)
+            params.setMargins(0, 0, 0, 40)
+            params.gravity = Gravity.CENTER_HORIZONTAL
+            layoutParams = params
+            setBackgroundResource(android.R.drawable.button_onoff_indicator_off) // Generic grey pill shape
+            alpha = 0.5f
+        }
+        layout.addView(handle)
+
+        val title = TextView(this).apply {
+            text = "Logi Aplikacji"
+            textSize = 20f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, 0, 0, 30)
+        }
+        layout.addView(title)
+
+        // The Scrollable Text
+        val scrollView = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                //LinearLayout.LayoutParams.WRAP_CONTENT
+                0,
+                1.0f
+            )
+        }
+
+        val textView = TextView(this).apply {
+            text = log
+            textSize = 14f
+            setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.NORMAL)
+        }
+
+        scrollView.addView(textView)
+        layout.addView(scrollView)
+
+        val buttonClearText = TextView(this).apply {
+            text = "Wyczyść logi"
+            setTextColor(android.graphics.Color.RED)
+            setPadding(0, 30, 0, 30)
+            gravity = Gravity.CENTER
+            textSize = 16f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setOnClickListener {
+                clearLogFile()
+                bottomSheetDialog.dismiss()
+            }
+        }
+        layout.addView(buttonClearText)
+
+        bottomSheetDialog.setContentView(layout)
+
+        bottomSheetDialog.setOnShowListener {
+            val bottomSheet = bottomSheetDialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bottomSheet?.background = null
+            (layout.parent as? View)?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        }
+
+        bottomSheetDialog.show()
+    }
+    private fun clearLogFile(){
+        try {
+            this.openFileOutput(logFileName, Context.MODE_PRIVATE).use { output ->
+                output.write("".toByteArray())}
+
+            Toast.makeText(this, "Wyczyszczono historię logów", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Błąd podczas czyszczenia logów: ${e.message}")
+        }
+    }
+    private fun setupLogReceiver() {
+        logReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                intent?.getStringExtra(LocationMonitoringService.EXTRA_LOG_MESSAGE)?.let { message ->
+                    addLogMessage("Service: $message") // Dodaj prefix, aby odróżnić logi z serwisu
+                }
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            logReceiver!!,
+            IntentFilter(LocationMonitoringService.ACTION_LOG_UPDATE)
+        )
     }
 
     private fun fetchDevices() {
@@ -289,7 +427,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     Toast.makeText(this@MainActivity, "Status urządzenia ${device.name} zmieniony na: $newSwitchState", Toast.LENGTH_SHORT).show()
                 }
-                // Możesz również zaktualizować status na liście spinnera, jeśli chcesz
+
             }
         }
     }
@@ -368,27 +506,6 @@ class MainActivity : AppCompatActivity() {
         updateMonitoringButtons() // Odśwież stan przycisków
     }
 
-    private fun setupLogReceiver() {
-        logReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                intent?.getStringExtra(LocationMonitoringService.EXTRA_LOG_MESSAGE)?.let { message ->
-                    addLogMessage("Service: $message") // Dodaj prefix, aby odróżnić logi z serwisu
-                }
-            }
-        }
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-            logReceiver!!,
-            IntentFilter(LocationMonitoringService.ACTION_LOG_UPDATE)
-        )
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        logReceiver?.let {
-            LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
-        }
-    }
-
     @Suppress("DEPRECATION")
     private fun isServiceRunning(serviceClass: Class<*>): Boolean {
         val manager = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
@@ -398,59 +515,5 @@ class MainActivity : AppCompatActivity() {
             }
         }
         return false
-    }
-
-    // --- Composable for the Logging Box ---
-    //TODO: Add ability to scroll log text
-    //TODO: Change text color when in dark mode
-    @Composable
-    fun LoggingScreen(logMessages: List<String>) {
-        val listState = rememberLazyListState()
-        val coroutineScope = rememberCoroutineScope()
-
-        LaunchedEffect(logMessages.size) {
-            if (logMessages.isNotEmpty()) {
-                coroutineScope.launch {
-                    // Animate scroll to the last item only if the list is not empty
-                    // and potentially if the user hasn't manually scrolled up (more advanced)
-                    listState.animateScrollToItem(logMessages.lastIndex)
-                }
-            }
-        }
-
-        if (logMessages.isEmpty()) {
-            // Możesz wyświetlić coś, gdy nie ma logów, lub po prostu pusty Box
-            // np. Text("Brak logów do wyświetlenia.")
-            // Dla zachowania wrap_content, pusty Box lub brak renderowania jest ok.
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth() // Chcemy pełną szerokość
-                    .wrapContentHeight() // KLUCZ: Wysokość dopasuje się do zawartości
-                    .heightIn(min = 50.dp, max = 300.dp) // OPCJONALNIE: Ogranicz wysokość
-                    .border(1.dp, Color.Gray)
-                    .padding(vertical = 4.dp) // Dodaj padding wewnątrz ramki
-            ) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxWidth() // LazyColumn powinien wypełniać szerokość Boxa
-                        .wrapContentHeight() // Wysokość LazyColumn również powinna dopasować się do elementów
-                    // W połączeniu z heightIn na Box, to będzie działać
-                ) {
-                    items(logMessages) { message ->
-                        Text(
-                            text = message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp, horizontal = 4.dp)
-                        )
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    }
-                }
-            }
-        }
     }
 }
