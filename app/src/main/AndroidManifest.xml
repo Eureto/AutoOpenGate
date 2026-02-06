@@ -43,7 +43,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- Ważne: Custom scheme dla Redirect URI. Zastąp "ewelinkapp" swoją unikalną nazwą. euretoapp://oauth2callback-->
+                <!-- Ważne: Custom scheme dla Redirect URI. Zastąp "ewelinkapp" swoją unikalną nazwą. MYAPP://oauth2callback-->
                 <data android:scheme="euretoapp" android:host="oauth2callback" />
             </intent-filter>
         </activity>
@@ -65,7 +65,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- WorkManager (konfiguracja domyślna jest ok) -->
+        <!-- WorkManager  -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
@@ -76,17 +76,6 @@
                 android:value="androidx.startup" />
         </provider>
 
-<!--        <activity-->
-<!--            android:name=".MainActivity"-->
-<!--            android:exported="true"-->
-<!--            android:label="@string/app_name"-->
-<!--            android:theme="@style/Theme.OpenDoor">-->
-<!--            <intent-filter>-->
-<!--                <action android:name="android.intent.action.MAIN" />-->
-
-<!--                <category android:name="android.intent.category.LAUNCHER" />-->
-<!--            </intent-filter>-->
-<!--        </activity>-->
     </application>
 
 </manifest>

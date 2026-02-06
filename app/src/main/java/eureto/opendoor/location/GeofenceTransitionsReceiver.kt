@@ -59,9 +59,9 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
      */
     companion object {
         const val ACTION_LOG_UPDATE =
-            "eureto.opendoor.action.LOG_UPDATE" // Ta sama akcja co w LocationMonitoringService
+            "eureto.opendoor.action.LOG_UPDATE" // Same action as in LocationMonitoringService
         const val EXTRA_LOG_MESSAGE =
-            "eureto.opendoor.extra.LOG_MESSAGE" // Ten sam klucz dla wiadomości
+            "eureto.opendoor.extra.LOG_MESSAGE" // Same key for messages
     }
 
     //
@@ -90,7 +90,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         val geofenceTransition = geofencingEvent.geofenceTransition
         val triggeringLocation = geofencingEvent.triggeringLocation
 
-        // Pobierz zapisane dane
+        // get the stored preferences
         val appPreferences = EwelinkApiClient.getAppPreferences()
         val deviceId = appPreferences.getSelectedDeviceId()
         val polygonJson = appPreferences.getPolygonCoordinates()
@@ -117,7 +117,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
         when (geofenceTransition) {
             Geofence.GEOFENCE_TRANSITION_ENTER -> {
-                Log.d("GeofenceReceiver", "Zdarzenie GEOFENCE_TRANSITION_ENTER")
+                sendLogToMainActivity(context, "Zdarzenie GEOFENCE_TRANSITION_ENTER")
                 // keep the BroadcastReceiver alive while we do async work
                 val pendingResult = goAsync()
                 scope.launch {
@@ -212,13 +212,13 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         if (context == null) return
 
         val builder = NotificationCompat.Builder(context, notificationChannelId)
-            .setSmallIcon(R.mipmap.ic_launcher_round) // Zmień na ikonę aplikacji
+            .setSmallIcon(R.mipmap.ic_launcher_round)
             .setContentTitle("eWeLink Automatyka")
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
 
-        // DODANO: Sprawdzenie uprawnień do wysyłania powiadomień
+        // Check for Android version and handle notification permission request
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(
                     context,
@@ -300,13 +300,8 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
                         PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
 
                     if (isNowInsidePolygon) {
-                        Log.d(
-                            "GeofenceReceiver",
-                            "Użytkownik wrócił do obszaru. Włączam bramę."
-                        )
                         sendLogToMainActivity(
-                            context,
-                            "Użytkownik wrócił do obszaru. Włączam bramę."
+                            context,"GeofenceReceiver: Użytkownik wrócił do obszaru. Włączam bramę."
                         )
                         sendNotification(context, "Wróciłeś do domu! Uruchamiam bramę...")
                         EwelinkDevices.toggleDevice(deviceId, "on")
@@ -320,48 +315,44 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
             }
 
             // small delay to avoid a tight loop - adjust as needed
-            if (!gateOpened) delay(TimeUnit.SECONDS.toMillis(5))
+            if (!gateOpened) delay(TimeUnit.SECONDS.toMillis(100))
 
             timeElapsedInMinutes = markStart.elapsedNow().inWholeMinutes
-            Log.d(
-                "GeofenceReceiver",
-                "Aktualnie sprawdzanie trwa już $timeElapsedInMinutes minut"
-            )
+            sendLogToMainActivity(context, "Aktualnie sprawdzanie lokalizacji trwa $timeElapsedInMinutes minute/y")
         }
     }
 
-    // Obliczanie odległości do najbliższego punktu wielokąta
-    private fun calculateDistanceToPolygon(currentLocation: LatLng, polygon: List<LatLng>): Float {
-        var minDistance = Float.MAX_VALUE
-        for (point in polygon) {
-            val results = FloatArray(1)
-            android.location.Location.distanceBetween(
-                currentLocation.latitude, currentLocation.longitude,
-                point.latitude, point.longitude,
-                results
-            )
-            val distanceMeters = results[0]
-            if (distanceMeters < minDistance) {
-                minDistance = distanceMeters
-            }
-        }
-        Log.d(
-            "GeofenceReceiver",
-            "Odległość do najbliższego punktu wielokąta: ${minDistance / 1000f} km"
-        )
-        return minDistance / 1000f // Zwróć w kilometrach
-    }
+    // Maybe it will be used in future
+//    private fun calculateDistanceToPolygon(currentLocation: LatLng, polygon: List<LatLng>): Float {
+//        var minDistance = Float.MAX_VALUE
+//        for (point in polygon) {
+//            val results = FloatArray(1)
+//            android.location.Location.distanceBetween(
+//                currentLocation.latitude, currentLocation.longitude,
+//                point.latitude, point.longitude,
+//                results
+//            )
+//            val distanceMeters = results[0]
+//            if (distanceMeters < minDistance) {
+//                minDistance = distanceMeters
+//            }
+//        }
+//        Log.d(
+//            "GeofenceReceiver",
+//            "Odległość do najbliższego punktu wielokąta: ${minDistance / 1000f} km"
+//        )
+//        return minDistance / 1000f // Zwróć w kilometrach
+//    }
 
-    // Dynamiczne obliczanie interwału sprawdzania (w milisekundach)
-    private fun calculateDynamicInterval(distanceKm: Float): Long {
-        return when {
-            distanceKm < 1 -> TimeUnit.MINUTES.toMillis(1) // Bardzo blisko, sprawdzaj często
-            distanceKm < 5 -> TimeUnit.MINUTES.toMillis(5) // Blisko
-            distanceKm < 20 -> TimeUnit.MINUTES.toMillis(15) // Średnia odległość
-            distanceKm < 50 -> TimeUnit.MINUTES.toMillis(30) // Dalej
-            else -> TimeUnit.HOURS.toMillis(1) // Bardzo daleko, sprawdzaj rzadziej
-        }
-    }
+//    private fun calculateDynamicInterval(distanceKm: Float): Long {
+//        return when {
+//            distanceKm < 1 -> TimeUnit.MINUTES.toMillis(1) // Bardzo blisko, sprawdzaj często
+//            distanceKm < 5 -> TimeUnit.MINUTES.toMillis(5) // Blisko
+//            distanceKm < 20 -> TimeUnit.MINUTES.toMillis(15) // Średnia odległość
+//            distanceKm < 50 -> TimeUnit.MINUTES.toMillis(30) // Dalej
+//            else -> TimeUnit.HOURS.toMillis(1) // Bardzo daleko, sprawdzaj rzadziej
+//        }
+//    }
 
     private fun sendLogToMainActivity(context: Context, message: String) {
         val intent = Intent(ACTION_LOG_UPDATE)

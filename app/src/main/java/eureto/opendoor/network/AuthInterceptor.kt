@@ -1,14 +1,12 @@
 package eureto.opendoor.network
 
-import android.util.Base64 // Import dla Base64 (od API 26+), dla starszych użyj commons-codec
-import eureto.opendoor.data.AppPreferences // Zmień nazwę pakietu
-import eureto.opendoor.network.model.LoginResponse // Zmień nazwę pakietu
+import android.util.Base64
+import eureto.opendoor.data.AppPreferences
+import eureto.opendoor.network.model.LoginResponse
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
 import okhttp3.OkHttpClient
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -18,9 +16,7 @@ import java.security.NoSuchAlgorithmException
 import java.util.UUID
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets // Wymaga API 19
-//TODO: usuń nieużywane importy
+import java.nio.charset.StandardCharsets
 
 /**
  * This interceptor handles OAuth2 token management and request signing for eWeLink API.
@@ -206,15 +202,10 @@ class AuthInterceptor(
     }
 
     /**
-     * Implementacja algorytmu podpisu HMAC-SHA256 dla eWeLink API.
-     * Na podstawie analizy popularnych bibliotek (np. ewelink-api-next).
      *
      * Format sygnatury: HMAC-SHA256(stringToSign, apikey)
      * stringToSign = "appid=${appid}&nonce=${nonce}&seq=${seq}&ts=${ts}&version=${version}&{uri}"
      *
-     * UWAGA: Parametry do podpisu mogą się różnić w zależności od wersji API i typu żądania.
-     * To jest jedna z najczęściej spotykanych implementacji.
-     * Musisz sprawdzić, czy Twój "kod" z konta deweloperskiego podaje inny algorygorytm lub parametry.
      */
     private fun generateSign(
         method: String,
@@ -222,9 +213,9 @@ class AuthInterceptor(
         requestBody: String?,
         params: Map<String, String>,
         accessToken: String,
-        apiKey: String, // Ten klucz zostanie zawsze przekazany jako non-null
+        apiKey: String,
         nonce: String,
-        timestamp: String, // Unix timestamp in milliseconds, convert to seconds if API expects
+        timestamp: String,
         version: String,
         appId: String
     ): String {
@@ -238,20 +229,12 @@ class AuthInterceptor(
             signParams["ts"] = tsInSeconds
             signParams["version"] = version
 
-            // Dodaj parametry z URI (query parameters)
             params.forEach { (key, value) ->
                 signParams[key] = value
             }
 
-            // Dodaj body, jeśli istnieje (często hasz MD5 z body lub samo body w stringu)
-            // Ta część jest bardzo zmienna i zależy od API.
-            // Dla prostych POSTów często używa się "params" jako JSON string, ale nie jest on częścią podpisu stringu
-            // W niektórych implementacjach MD5 z body jest dodawane do podpisu, ale nie w stringToSign.
-
-            // Posortuj wszystkie parametry alfabetycznie i zbuduj stringToSign
             val sortedString = signParams.toSortedMap().map { "${it.key}=${it.value}" }.joinToString("&")
 
-            // final String to sign includes the URI path
             val stringToSign = "${sortedString}&${uri}"
 
             val hmacSha256 = Mac.getInstance("HmacSHA256")
@@ -260,8 +243,6 @@ class AuthInterceptor(
 
             val hash = hmacSha256.doFinal(stringToSign.toByteArray(StandardCharsets.UTF_8))
 
-            // Konwertuj bajty na Base64 (bez zawijania w wiersze, bez Paddingu)
-            // Użyj standardowej klasy Base64 z Androida lub commons-codec
             return Base64.encodeToString(hash, Base64.NO_WRAP)
 
         } catch (e: NoSuchAlgorithmException) {
@@ -271,6 +252,6 @@ class AuthInterceptor(
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return "" // Zwróć pusty string w przypadku błędu
+        return ""
     }
 }

@@ -22,28 +22,27 @@ class EwelinkWebSocketClient(
 ) {
     internal var webSocket: WebSocket? = null
 
-    // TODO: Dodaj notyfikację o zmianie statusu urządzenia jeśli jest to wysłane przeze mnie lub jeśli ktoś inny otworzy bramę
+    // TODO: update status of gate if i open it or some else does it
     private val _deviceStatusUpdatesChannel = Channel<Device>(Channel.BUFFERED)
     val deviceStatusUpdatesFlow = _deviceStatusUpdatesChannel.receiveAsFlow()
 
-    // Adres WebSocket jest zależny od regionu, który otrzymujesz po zalogowaniu
     private fun getWebSocketUrl(region: String): String {
         return when (region) {
             "us" -> "wss://us-apia.coolkit.cc:8080/api/ws"
             "eu" -> "wss://eu-apia.coolkit.cc:8080/api/ws"
             "as" -> "wss://as-apia.coolkit.cc:8080/api/ws"
             "cn" -> "wss://cn-apia.coolkit.cc:8080/api/ws"
-            else -> "wss://us-apia.coolkit.cc:8080/api/ws" // Domyślnie
+            else -> "wss://us-apia.coolkit.cc:8080/api/ws" // Default
         }
     }
 
     fun connect() {
-        val region = appPreferences.getRegion() // getRegion() teraz zwraca "eu" jeśli null
+        val region = appPreferences.getRegion()
         val accessToken = appPreferences.getAccessToken()
-        val userId = appPreferences.getOAuthState() // UserId to teraz stan OAuth
-        val apikeyForWs = appPreferences.getClientSecret() // Używamy clientSecret jako apikey dla WebSocket
+        val userId = appPreferences.getOAuthState()
+        val apikeyForWs = appPreferences.getClientSecret()
 
-        if (accessToken.isNullOrEmpty() || userId.isNullOrEmpty() || region.isNullOrEmpty()) { // Usunięto apikey z warunku
+        if (accessToken.isNullOrEmpty() || userId.isNullOrEmpty() || region.isNullOrEmpty()) {
             println("EwelinkWebSocketClient: Brak danych logowania (token, userId, region), nie można połączyć z WebSocket.")
             return
         }
@@ -54,13 +53,13 @@ class EwelinkWebSocketClient(
         webSocket = okHttpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 println("EwelinkWebSocketClient: WebSocket Opened: ${response.message}")
-                // Po otwarciu połączenia, wyślij wiadomość autoryzacyjną
+
                 val authMessage = WebSocketMessage(
                     action = "userOnline",
                     at = accessToken,
                     apikey = apikeyForWs,
                     appid = appPreferences.getClientId(),
-                    seq = (System.currentTimeMillis() / 1000).toString(), // seq to Unix timestamp w sekundach
+                    seq = (System.currentTimeMillis() / 1000).toString(),
                     userAgent = "app",
                     ts = (System.currentTimeMillis() / 1000).toString(),
                     version = 8
@@ -75,29 +74,27 @@ class EwelinkWebSocketClient(
                     val message = gson.fromJson(text, WebSocketMessage::class.java)
                     when (message.action) {
                         "sysMsg" -> {
-                            // Obsłuż wiadomości systemowe, np. ping/pong
+
                             if (message.sequence == "pong") {
                                 println("EwelinkWebSocketClient: Otrzymano pong.")
                             }
                         }
                         "update" -> {
-                            // Obsłuż aktualizacje statusu urządzenia
-                            // Pełna aktualizacja statusu urządzenia
                             val deviceId = message.deviceid ?: return
                             val paramsMap = message.params ?: return
-                            val switchState = paramsMap["switch"] as? String // Zakładamy, że to przełącznik
+                            val switchState = paramsMap["switch"] as? String
                             if (switchState != null) {
                                 val updatedDevice = Device(
                                     deviceid = deviceId,
-                                    name = "Nieznane urządzenie", // Nazwa będzie aktualizowana z listy urządzeń
-                                    online = true, // Zakładamy online po aktualizacji
+                                    name = "Nieznane urządzenie",
+                                    online = true,
                                     params = DeviceParams(switch = switchState)
                                 )
                                 _deviceStatusUpdatesChannel.trySend(updatedDevice)
                                 println("EwelinkWebSocketClient: Zaktualizowano status urządzenia: $deviceId do $switchState")
                             }
                         }
-                        // ... inne typy wiadomości, np. "data" z pełnymi danymi urządzenia
+
                     }
                 } catch (e: Exception) {
                     println("EwelinkWebSocketClient: Błąd parsowania wiadomości WebSocket: ${e.message}")
@@ -116,8 +113,6 @@ class EwelinkWebSocketClient(
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 println("EwelinkWebSocketClient: Błąd WebSocket: ${t.message}")
                 t.printStackTrace()
-                // Tutaj można zaimplementować logikę ponownego łączenia
-                // np. opóźnić i spróbować ponownie po pewnym czasie
             }
         })
     }
@@ -129,9 +124,6 @@ class EwelinkWebSocketClient(
         println("EwelinkWebSocketClient: Rozłączono WebSocket.")
     }
 
-
-
-    // Wysyłanie ping co jakiś czas, aby utrzymać połączenie
     fun sendPing() {
         if (webSocket == null) return
         val pingMessage = mapOf(

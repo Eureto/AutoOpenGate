@@ -14,19 +14,13 @@ import retrofit2.http.Query
 // Interface for Ewelink API service using Retrofit
 interface EwelinkApiService {
 
-    // Przykład pobierania listy urządzeń
-    // URI to /v2/device/thing
     @Headers("Content-Type: application/json")
     @GET("v2/device/thing")
     suspend fun getDevices(): ApiResponse<DeviceListWrapper>
 
-    // Przykład pobierania statusu pojedynczego urządzenia
-    // URI to /v2/device/thing/status
     @GET("v2/device/thing/status")
     suspend fun getDeviceStatus(@Query("thingid") deviceId: String): ApiResponse<Device>
 
-    // Przykład pobierania statusu pojedynczego urządzenia
-    // URI to /v2/device/thing/status
     @POST("v2/device/thing/status")
     @Headers("Content-Type: application/json")
     suspend fun setDeviceStatus(@Body body: DeviceControlRequest): ApiResponse<ToggleResponse>

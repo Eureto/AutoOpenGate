@@ -54,13 +54,13 @@ class LocationMonitoringService : Service() {
         const val NOTIFICATION_CHANNEL_ID = "eureto_opendoor_location_channel"
         const val NOTIFICATION_ID = 123
         const val GEOFENCE_REQUEST_ID = "home_area_geofence"
-        const val GEOFENCE_RADIUS_METERS = 1000f // Promień dla symulacji wielokąta
+        const val GEOFENCE_RADIUS_METERS = 1000f // TODO: Maybe add option to set radius in app
         const val ACTION_GEOFENCE_TRANSITION = "eureto.opendoor.ACTION_GEOFENCE_TRANSITION"
         const val ACTION_OPEN_GATE = "eureto.opendoor.ACTION_OPEN_GATE"
         const val ACTION_STOP_SERVICE = "eureto.opendoor.ACTION_STOP_SERVICE"
     }
 
-    // Initialize components like GeofencingClient, NotificationManager, etc.
+
     override fun onCreate() {
         super.onCreate()
         geofencingClient = LocationServices.getGeofencingClient(this)
@@ -107,6 +107,8 @@ class LocationMonitoringService : Service() {
 
         startForeground(NOTIFICATION_ID, createNotification("Monitorowanie lokalizacji aktywne.").build())
 
+
+        // TODO: Do i need this websocket?
         // Connect to WebSocket if not already connected
         if (ewelinkWebSocketClient.webSocket == null) {
             ewelinkWebSocketClient.connect()
@@ -144,7 +146,7 @@ class LocationMonitoringService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "Monitorowanie eWeLink",
+                "Monitorowanie lokalizacji",
                 NotificationManager.IMPORTANCE_LOW
             )
             serviceChannel.description = "Kanał dla powiadomień o monitorowaniu lokalizacji eWeLink."
@@ -237,8 +239,7 @@ class LocationMonitoringService : Service() {
             return
         }
 
-        // Dla wielokąta, użyjemy centralnego punktu wielokąta i dużego promienia
-        // Następnie w GeofenceTransitionsReceiver sprawdzimy dokładną lokalizację w wielokącie
+        // Calculate the centroid of the polygon and then use big radius for geofence
         val centroid = calculatePolygonCentroid(polygon)
 
         val geofence = Geofence.Builder()
@@ -289,13 +290,14 @@ class LocationMonitoringService : Service() {
     }
 
     private fun removeGeofences() {
-        sendLogToMainActivity("usuwania Geofences w removeGeofences()")
+        sendLogToMainActivity("Usuwanie Geofences w removeGeofences()")
         geofencingClient.removeGeofences(listOf(GEOFENCE_REQUEST_ID))
             .addOnSuccessListener {
-                Log.d("LocationService", "Geofence usunięty pomyślnie.")
+
+                sendLogToMainActivity("LocationService: Geofence usunięty pomyślnie.")
             }
             .addOnFailureListener { e ->
-                Log.e("LocationService", "Błąd usuwania Geofence: ${e.message}", e)
+                sendLogToMainActivity("LocationService: Błąd usuwania Geofence: ${e.message}")
             }
     }
 

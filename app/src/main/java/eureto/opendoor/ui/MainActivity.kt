@@ -235,6 +235,8 @@ class MainActivity : AppCompatActivity() {
         val timestamp = SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(Date())
         val fullMessage = "[$timestamp] $message\n"
 
+        Log.d("LogMessage", message)
+
         try {
             this.openFileOutput(logFileName, Context.MODE_APPEND).use { output ->
                 output.write(fullMessage.toByteArray())
@@ -267,7 +269,6 @@ class MainActivity : AppCompatActivity() {
 
         }
 
-
         val handle = View(this).apply {
             val params = LinearLayout.LayoutParams(100, 12)
             params.setMargins(0, 0, 0, 40)
@@ -286,7 +287,6 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(title)
 
-        // The Scrollable Text
         val scrollView = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -361,7 +361,6 @@ class MainActivity : AppCompatActivity() {
                 val response = apiService.getDevices()
 
                 if (response.error == 0 && response.data != null && !response.data.thingList.isNullOrEmpty()) {
-                    // Mapuj ThingListItem.itemData do listy Device
                     deviceList = response.data.thingList.mapNotNull { it.itemData }
 
                     val adapterData = mutableListOf("Wybierz urządzenie")
@@ -372,7 +371,6 @@ class MainActivity : AppCompatActivity() {
                     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                     binding.spinnerDevices.adapter = adapter
 
-                    // Ustawia poprzednio wybrane urządzenie
                     val savedDeviceId = appPreferences.getSelectedDeviceId()
                     val savedDevicePosition = deviceList.indexOfFirst { it.deviceid == savedDeviceId }
                     if (savedDevicePosition != -1) {
@@ -381,7 +379,6 @@ class MainActivity : AppCompatActivity() {
                     Log.d("MainActivity", "Pobrano urządzenia: ${deviceList.size}")
                     addLogMessage("Pobrano urządzenia: ${deviceList.size}")
 
-                    // Po pobraniu urządzeń, zaktualizuj wyświetlany status wybranego urządzenia
                     selectedDeviceId?.let { id ->
                         val currentDevice = deviceList.find { it.deviceid == id }
                         currentDevice?.let { device ->
@@ -411,7 +408,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Nasłuchiwanie aktualizacji statusu urządzeń przez WebSocket
+    // Listen to device status updates
     private fun observeDeviceStatusUpdates() {
         lifecycleScope.launch {
             ewelinkWebSocketClient.deviceStatusUpdatesFlow.collectLatest { device ->
@@ -448,28 +445,27 @@ class MainActivity : AppCompatActivity() {
         val selectedId = appPreferences.getSelectedDeviceId()
         val polygonJson = appPreferences.getPolygonCoordinates()
 
-        // Sprawdź, czy wybrane urządzenie i obszar są ustawione
+        // Check if device and polygon are selected
         if (selectedId.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
             Toast.makeText(this, "Wybierz urządzenie i zaznacz obszar na mapie przed rozpoczęciem monitorowania.", Toast.LENGTH_LONG).show()
             updateMonitoringButtons()
             return
         }
 
-        // Sprawdź uprawnienia do lokalizacji ponownie przed uruchomieniem serwisu
+        // check location permission before starting monitoring
         val hasFineLocation = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val hasBackgroundLocation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
         } else {
-            true // Dla starszych wersji nie ma osobnego uprawnienia do tła
+            true // for older versions there is no need to check background location permission
         }
         if (!hasFineLocation || !hasBackgroundLocation) {
             Toast.makeText(this, "Brak wymaganych uprawnień lokalizacji.", Toast.LENGTH_LONG).show()
-            // Ponownie poproś o uprawnienia lub przekieruj do ustawień
             requestLocationPermissions()
             return
         }
 
-        // Uruchom usługę monitorowania lokalizacji
+        // Starts the monitoring service
         val serviceIntent = Intent(this, LocationMonitoringService::class.java)
         // This intent servers as bridge to the service passing the selected device ID and polygon JSON
         serviceIntent.putExtra("deviceId", selectedId)
@@ -489,7 +485,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    // Aktualizuje stan przycisków start/stop monitorowania na podstawie wybranego urządzenia i zaznaczonego obszaru
+    // Updates the button states based on selected device and polygon
     private fun updateMonitoringButtons() {
         val isDeviceSelected = !appPreferences.getSelectedDeviceId().isNullOrEmpty()
         val isPolygonSet = !appPreferences.getPolygonCoordinates().isNullOrEmpty()
@@ -498,7 +494,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMonitoringStatusUI() {
-        // Sprawdź, czy serwis działa (przez globalną flagę, np. z preferencji, lub przez sprawdzanie RunningServices)
+        // Check if service is running and update the UI accordingly
         val isMonitoringActive = isServiceRunning(LocationMonitoringService::class.java)
         binding.tvMonitoringStatus.text = "Status monitorowania: ${if (isMonitoringActive) "Aktywne" else "Nieaktywne"}"
         binding.btnStartMonitoring.visibility = if (isMonitoringActive) View.GONE else View.VISIBLE

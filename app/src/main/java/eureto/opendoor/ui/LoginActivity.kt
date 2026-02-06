@@ -38,7 +38,7 @@ class LoginActivity : AppCompatActivity() {
             startOAuthLogin()
         }
 
-        // Sprawdź, czy użytkownik jest już zalogowany
+        // Check if user is already signed in
         if (!appPreferences.getAccessToken().isNullOrEmpty()) {
             navigateToMain()
         }
@@ -47,7 +47,7 @@ class LoginActivity : AppCompatActivity() {
     // Obsługa powrotu z przekierowania OAuth2
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        setIntent(intent) // Ustawia nowy Intent dla Activity
+        setIntent(intent)
 
         val uri = intent.data
         Log.d("LoginActivity", "Otrzymano URI: $uri")
@@ -60,7 +60,6 @@ class LoginActivity : AppCompatActivity() {
             val code = uri.getQueryParameter("code")
             val state = uri.getQueryParameter("state")
 
-            // Logowanie kodu i stanu z callbacka
             Log.d("LoginActivity", "OAuth Callback - Code: $code, State: $state")
 
             if (!code.isNullOrEmpty()) {
@@ -78,30 +77,29 @@ class LoginActivity : AppCompatActivity() {
 
     private fun startOAuthLogin() {
         val currentTimestamp = System.currentTimeMillis().toString()
-        val nonce = generateNonce(8) // Generuj 8-znakowy nonce
+        val nonce = generateNonce(8)
 
         val clientId = appPreferences.getClientId()
         val redirectUrl = appPreferences.getRedirectUri()
-        val grantType = "authorization_code" // Zgodnie z przykładem
+        val grantType = "authorization_code"
         val state = generateRandomState()
 
-        // Oblicz authorization sign
         val authorizationSign = generateOAuthUrlParamSign(
             clientId = clientId,
-            seq = currentTimestamp, // `seq` jest timestampem w ms zgodnie z obrazkiem
+            seq = currentTimestamp,
             clientSecret = appPreferences.getClientSecret()
         )
 
-        // Zmieniono na konkretny adres URL podany przez użytkownika i dopasowano nazwy/kolejność parametrów
+
         val authUrl = Uri.parse("https://c2ccdn.coolkit.cc/oauth/index.html")
             .buildUpon()
-            .appendQueryParameter("clientId", clientId) // Zmieniono nazwę z client_id
-            .appendQueryParameter("redirectUrl", redirectUrl) // Zmieniono nazwę z redirect_uri
-            .appendQueryParameter("grantType", grantType) // Zmieniono nazwę z response_type na grantType
+            .appendQueryParameter("clientId", clientId)
+            .appendQueryParameter("redirectUrl", redirectUrl)
+            .appendQueryParameter("grantType", grantType)
             .appendQueryParameter("state", state)
-            .appendQueryParameter("nonce", nonce) // Dodano parametr nonce
-            .appendQueryParameter("seq", currentTimestamp) // Dodano parametr seq (timestamp w ms)
-            .appendQueryParameter("authorization", authorizationSign) // Dodano wyliczony parametr authorization
+            .appendQueryParameter("nonce", nonce)
+            .appendQueryParameter("seq", currentTimestamp)
+            .appendQueryParameter("authorization", authorizationSign)
             .build()
             .toString()
 
@@ -115,15 +113,13 @@ class LoginActivity : AppCompatActivity() {
             try {
                 val authService = EwelinkApiClient.createAuthService()
 
-                // Przygotowanie nagłówków i ciała żądania JSON dla nowego wywołania getAccessToken
-                val nonceHeader = generateNonce(8) // Nowy nonce dla nagłówka
+                val nonceHeader = generateNonce(8)
                 val requestBody = AccessTokenRequestBody(
                     code = code,
                     redirectUrl = appPreferences.getRedirectUri(),
                     grantType = "authorization_code"
                 )
 
-                // WAŻNE: Tutaj generujemy podpis dla nagłówka Authorization, który używa JSON body
                 val authorizationHeader = generateAccessTokenHeaderSign(
                     requestBody = requestBody,
                     clientSecret = appPreferences.getClientSecret()
@@ -131,19 +127,19 @@ class LoginActivity : AppCompatActivity() {
 
                 val loginResponse = authService.getAccessToken(
                     nonce = nonceHeader,
-                    auth = authorizationHeader, // To jest ten nagłówek, który wymaga podpisu z JSON body
+                    auth = authorizationHeader,
                     appid = appPreferences.getClientId(),
-                    requestBody = requestBody // Przekazanie obiektu ciała żądania
+                    requestBody = requestBody
                 )
 
-                // Sprawdzenie error code z odpowiedzi serwera
+
                 if (loginResponse.error != 0) {
                     val errorMessage = "Błąd serwera: ${loginResponse.msg} (Kod: ${loginResponse.error})"
                     Log.e("LoginActivity", errorMessage)
                     Toast.makeText(this@LoginActivity, "Błąd logowania: $errorMessage", Toast.LENGTH_LONG).show()
                     return@launch // Zakończ coroutine w przypadku błędu
                 }
-                // Sprawdź, czy obiekt 'data' jest null
+
                 if (loginResponse.data == null) {
                     val errorMessage = "Błąd: Odpowiedź serwera nie zawiera obiektu 'data'."
                     Log.e("LoginActivity", errorMessage)
@@ -154,8 +150,6 @@ class LoginActivity : AppCompatActivity() {
 
                 appPreferences.saveLoginData(loginResponse)
 
-                // Użycie operatora ?. oraz ?: "" do bezpiecznego logowania null'owych wartości
-                // Teraz odwołujemy się do pól przez loginResponse.data?.field_name
                 Log.d("LoginActivity", "Login successful. AccessToken: ${loginResponse.data.accessToken?.take(10)}..., RefreshToken: ${loginResponse.data.refreshToken?.take(10)}..., Region: ${appPreferences.getRegion()}")
                 Toast.makeText(this@LoginActivity, "Zalogowano pomyślnie!", Toast.LENGTH_SHORT).show()
                 Log.d("LoginActivity", "Zalogowano pomyślnie. Region: ${appPreferences.getRegion()}")
@@ -216,7 +210,7 @@ class LoginActivity : AppCompatActivity() {
     /**
      * Generuje podpis HMAC-SHA256 dla nagłówka 'Authorization' w żądaniu wymiany tokenu.
      * stringToSign = JSON_string_of_request_body
-     * Zwraca hash Base64 z prefiksem "Sign ".
+     * @return Zwraca hash Base64 z prefiksem "Sign ".
      */
     private fun generateAccessTokenHeaderSign(
         requestBody: AccessTokenRequestBody,

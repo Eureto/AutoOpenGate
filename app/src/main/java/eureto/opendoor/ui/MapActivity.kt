@@ -50,27 +50,26 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
-        // Ustaw domyślną lokalizację (np. centrum Krakowa)
-        val warsaw = LatLng( 22.001, 21.0122)
+        // Default location to show is warsaw
+        val warsaw = LatLng( 52.211, 21.0122)
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(warsaw, 10f))
 
-        // Umożliwienie rysowania wielokąta poprzez dotykanie mapy
+
         mMap.setOnMapClickListener { latLng ->
             polygonPoints.add(latLng)
             redrawPolygon()
         }
 
-        // Załaduj zapisany wielokąt, jeśli istnieje
         loadPolygon()
     }
 
     private fun redrawPolygon() {
-        drawnPolygon?.remove() // Usuń stary wielokąt
+        drawnPolygon?.remove()
         if (polygonPoints.size > 1) {
             val polygonOptions = PolygonOptions()
                 .addAll(polygonPoints)
                 .strokeColor(Color.BLUE)
-                .fillColor(Color.argb(70, 0, 0, 255)) // Półprzezroczysty niebieski
+                .fillColor(Color.argb(70, 0, 0, 255)) // Light blue
                 .strokeWidth(5f)
             drawnPolygon = mMap.addPolygon(polygonOptions)
         }
@@ -90,7 +89,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         Toast.makeText(this, "Obszar domu zapisany pomyślnie!", Toast.LENGTH_SHORT).show()
         Log.d("MapActivity", "Zapisano wielokąt: $json")
-        finish() // Wróć do MainActivity
+        finish() // go back to mainActivity
     }
 
     private fun loadPolygon() {
