@@ -55,12 +55,14 @@ object EwelinkDevices{
 
             if (response.error == 0 && response.msg == "ok") {
                 Log.d("MainActivity", "Status urządzenia $deviceId zmieniony na $state przez REST API.")
+                sendBroadcastLog("Status urządzenia $deviceId zmieniony na $state przez REST API.")
 
             } else {
                 Log.e(
                     "MainActivity",
                     "Błąd zmiany statusu urządzenia $deviceId na $state: ${response.msg ?: "Nieznany błąd"} (Kod: ${response.error})"
                 )
+                sendBroadcastLog("Błąd zmiany statusu urządzenia $deviceId na $state: ${response.msg ?: "Nieznany błąd"} (Kod: ${response.error})")
             }
         } catch (e: Exception) {
             Toast.makeText(
@@ -69,6 +71,7 @@ object EwelinkDevices{
                 Toast.LENGTH_LONG
             ).show()
             Log.e("MainActivity", "Błąd sieci podczas zmiany statusu urządzenia: ${e.message}", e)
+            sendBroadcastLog("Błąd sieci podczas zmiany statusu urządzenia lub inny błąd: ${e.message}")
         }
     }
 }

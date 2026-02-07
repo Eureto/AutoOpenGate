@@ -139,8 +139,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Example: Log when the activity is created
-        addLogMessage("MainActivity onCreate called")
+
+        addLogMessage("MainActivity: onCreate called")
         setupLogReceiver()
         setupUI()
         fetchDevices()
@@ -361,6 +361,8 @@ class MainActivity : AppCompatActivity() {
                 val response = apiService.getDevices()
 
                 if (response.error == 0 && response.data != null && !response.data.thingList.isNullOrEmpty()) {
+                    // if succesfully fetched devics from server crate list
+
                     deviceList = response.data.thingList.mapNotNull { it.itemData }
 
                     val adapterData = mutableListOf("Wybierz urządzenie")

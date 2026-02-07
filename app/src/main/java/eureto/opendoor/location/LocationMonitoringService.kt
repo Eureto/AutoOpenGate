@@ -44,6 +44,7 @@ class LocationMonitoringService : Service() {
     private val gson = Gson()
 
     private var deviceIdToControl: String? = null
+    private var polygonJson: String? = null
     private var polygonCoordinates: List<LatLng>? = null
     private var isInsideGeofence = false // Stan, czy użytkownik jest w obszarze
 
@@ -80,13 +81,30 @@ class LocationMonitoringService : Service() {
         Log.d("LocationService", "onStartCommand")
 
         deviceIdToControl = intent?.getStringExtra("deviceId")
-        val polygonJson = intent?.getStringExtra("polygonJson")
+        polygonJson = intent?.getStringExtra("polygonJson")
 
         // Check if deviceId and polygon are provided
         if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
-            Log.e("LocationService", "Brak deviceId lub polygonJson. Zatrzymuję usługę.")
-            stopSelf()
-            return START_NOT_STICKY
+            Log.e("LocationService", "Brak deviceId lub polygonJson. Sprawdzam czy nie ma zapisanych ustawień lokalizacji.")
+            deviceIdToControl = appPreferences.getSelectedDeviceId()
+            polygonJson = appPreferences.getPolygonCoordinates()
+
+            if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
+                Log.e("LocationService", "Brak zapisanych ustawień lokalizacji. Zatrzymuję usługę.")
+                stopSelf()
+                return START_NOT_STICKY
+            }
+        }
+
+        when(intent?.action){
+            ACTION_OPEN_GATE -> {
+                EwelinkDevices.toggleDevice(deviceIdToControl!!, "on")
+                return START_STICKY;
+            }
+            ACTION_STOP_SERVICE -> {
+                stopSelf()
+                return START_NOT_STICKY
+            }
         }
 
         // Parse polygon coordinates from JSON
