@@ -117,6 +117,9 @@ class MapActivity : AppCompatActivity(){
             Toast.makeText(this, "Musisz zaznaczyć co najmniej 3 punkty, aby utworzyć wielokąt.", Toast.LENGTH_LONG).show()
             return
         }
+        //Convert GeoPoints to LatLng format
+        val polygonPoints = polygonPoints.map { LatLng(it.latitude, it.longitude) }
+
         val json = gson.toJson(polygonPoints)
         appPreferences.savePolygonCoordinates(json)
         // Also save center point of the polygon for geofencing

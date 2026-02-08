@@ -11,6 +11,10 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.work.OneTimeWorkRequest
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofenceStatusCodes
@@ -93,15 +97,8 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         val appPreferences = EwelinkApiClient.getAppPreferences()
         val deviceId = appPreferences.getSelectedDeviceId()
         val polygonJson = appPreferences.getPolygonCoordinates()
-        val polygonCoordinates: List<LatLng>? = try {
-            if (polygonJson.isNullOrEmpty()) null
-            else gson.fromJson(polygonJson, object : TypeToken<List<LatLng>>() {}.type)
-        } catch (e: Exception) {
-            Log.e("GeofenceReceiver", "Błąd parsowania wielokąta: ${e.message}")
-            null
-        }
 
-        if (deviceId.isNullOrEmpty() || polygonCoordinates.isNullOrEmpty()) {
+        if (deviceId.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
             Log.e(
                 "GeofenceReceiver",
                 "Brak wybranego urządzenia lub zdefiniowanego obszaru. Zatrzymuję operacje."
@@ -122,10 +119,14 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
                 scope.launch {
                     try {
                         sendLogToMainActivity(context, "Sprawdzanie lokalizacji w tle...")
-                        sendLogToMainActivity(context, "Dane przekazane do sprawdzania \n deviceId: $deviceId \n polygonCoordinates: $polygonCoordinates")
-                        performLocationCheck(context, deviceId, polygonCoordinates, appPreferences)
+                        sendLogToMainActivity(context, "Dane przekazane do sprawdzania \n deviceId: $deviceId \n polygonCoordinates: $polygonJson")
+                        val workRequest = OneTimeWorkRequestBuilder<LocationCheckWorker>()
+                            .setInputData(workDataOf("deviceId" to deviceId, "polygonCoordinates" to polygonJson))
+                            .build()
+                        WorkManager.getInstance(context).enqueue(workRequest)
+
                     } finally {
-                        sendLogToMainActivity(context, "GeofenceReceiver: Koniec sprawdzania lokalizacji w tle")
+                        sendLogToMainActivity(context, "GeofenceReceiver: Koniec działania gefece receiver ")
                         pendingResult.finish()
                     }
                 }
@@ -137,71 +138,66 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
                 sendLogToMainActivity(context, "Zdarzenie GEOFENCE_TRANSITION_EXIT ale robie return")
                 return // usuń
 
-                if (false) { // Upewnij się, że faktycznie jesteś poza wielokątem
-                    Log.d("GeofenceReceiver", "Lokalizacja poza wielokątem. Opuściłeś teren.")
-                    sendNotification(context, "Opuściłeś teren. Brama zostanie wyłączona.")
-                    scope.launch {
-
-                        try {
-                            val apiService = EwelinkApiClient.createApiService()
-                            val requestBody = DeviceControlRequest(
-                                type = 1,
-                                id = deviceId,
-                                params = DeviceControlParams(switch = "on") // lub "off"
-                            )
-                            val response = apiService.setDeviceStatus(requestBody)
-
-                            if (response.error == 0 && response.msg == "ok") {
-                                Log.i(
-                                    TAG,
-                                    "Pomyślnie zmieniono status urządzenia $deviceId na OFF przez REST API."
-                                )
-                                delay(TimeUnit.SECONDS.toMillis(5))
-                                sendNotification(context, "Brama została wyłączona.")
-
-                                // Logika "10 minut nieaktywna, potem sprawdzanie"
-                                // Uruchomienie WorkManagera po 10 minutach
-                                Log.d(
-                                    "GeofenceReceiver",
-                                    "Aplikacja nieaktywna na 10 minut. Zaplanowano sprawdzenie."
-                                )
-                                delay(TimeUnit.MINUTES.toMillis(10)) // 10 minut nieaktywności
-                                // Po 10 minutach, wykonaj sprawdzenie lokalizacji
-                                performLocationCheck(
-                                    context,
-                                    deviceId,
-                                    polygonCoordinates,
-                                    appPreferences
-                                )
-                            } else {
-                                Log.e(
-                                    TAG,
-                                    "Błąd zmiany statusu urządzenia $deviceId na OFF: ${response.msg ?: "Nieznany błąd"} (Kod: ${response.error})"
-                                )
-                                sendNotification(
-                                    context,
-                                    "Błąd wyłączania bramy: ${response.msg ?: "Nieznany błąd"}"
-                                )
-                            }
-                        } catch (e: Exception) {
-                            Log.e(
-                                TAG,
-                                "Błąd sieci podczas zmiany statusu urządzenia $deviceId na OFF: ${e.message}",
-                                e
-                            )
-                            sendNotification(
-                                context,
-                                "Błąd sieci podczas wyłączania bramy: ${e.message}"
-                            )
-                        }
-
-                    }
-                } else {
-                    Log.d(
-                        "GeofenceReceiver",
-                        "Zdarzenie EXIT, ale nadal wewnątrz wielokąta. Ignoruję."
-                    )
-                }
+//                if (false) { // Upewnij się, że faktycznie jesteś poza wielokątem
+//                    Log.d("GeofenceReceiver", "Lokalizacja poza wielokątem. Opuściłeś teren.")
+//                    sendNotification(context, "Opuściłeś teren. Brama zostanie wyłączona.")
+//                    scope.launch {
+//
+//                        try {
+//                            val apiService = EwelinkApiClient.createApiService()
+//                            val requestBody = DeviceControlRequest(
+//                                type = 1,
+//                                id = deviceId,
+//                                params = DeviceControlParams(switch = "on") // lub "off"
+//                            )
+//                            val response = apiService.setDeviceStatus(requestBody)
+//
+//                            if (response.error == 0 && response.msg == "ok") {
+//                                Log.i(
+//                                    TAG,
+//                                    "Pomyślnie zmieniono status urządzenia $deviceId na OFF przez REST API."
+//                                )
+//                                delay(TimeUnit.SECONDS.toMillis(5))
+//                                sendNotification(context, "Brama została wyłączona.")
+//
+//                                // Logika "10 minut nieaktywna, potem sprawdzanie"
+//                                // Uruchomienie WorkManagera po 10 minutach
+//                                Log.d(
+//                                    "GeofenceReceiver",
+//                                    "Aplikacja nieaktywna na 10 minut. Zaplanowano sprawdzenie."
+//                                )
+//                                delay(TimeUnit.MINUTES.toMillis(10)) // 10 minut nieaktywności
+//                                // Po 10 minutach, wykonaj sprawdzenie lokalizacji
+//
+//                            } else {
+//                                Log.e(
+//                                    TAG,
+//                                    "Błąd zmiany statusu urządzenia $deviceId na OFF: ${response.msg ?: "Nieznany błąd"} (Kod: ${response.error})"
+//                                )
+//                                sendNotification(
+//                                    context,
+//                                    "Błąd wyłączania bramy: ${response.msg ?: "Nieznany błąd"}"
+//                                )
+//                            }
+//                        } catch (e: Exception) {
+//                            Log.e(
+//                                TAG,
+//                                "Błąd sieci podczas zmiany statusu urządzenia $deviceId na OFF: ${e.message}",
+//                                e
+//                            )
+//                            sendNotification(
+//                                context,
+//                                "Błąd sieci podczas wyłączania bramy: ${e.message}"
+//                            )
+//                        }
+//
+//                    }
+//                } else {
+//                    Log.d(
+//                        "GeofenceReceiver",
+//                        "Zdarzenie EXIT, ale nadal wewnątrz wielokąta. Ignoruję."
+//                    )
+//                }
             }
 
             else -> {
@@ -241,87 +237,6 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
             with(NotificationManagerCompat.from(context)) {
                 notify(notificationId, builder.build())
             }
-        }
-    }
-
-    // This functions handles everything after user enters geofence area
-    // It check location of user for 10 minutes and if user enters selected are it opens the gate
-    // If user doesn't enter selected area it does nothing
-    private suspend  fun performLocationCheck(
-        context: Context,
-        deviceId: String,
-        polygonCoordinates: List<LatLng>,
-        appPreferences: AppPreferences
-    ) {
-        // Checking permissions
-        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
-            context,
-            android.Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        val hasCoarseLocationPermission = ContextCompat.checkSelfPermission(
-            context,
-            android.Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
-            Log.e(
-                "GeofenceReceiver",
-                "Brak uprawnień do lokalizacji podczas performLocationCheck. Zatrzymuję."
-            )
-            sendNotification(context, "Błąd: Brak uprawnień do lokalizacji do sprawdzania w tle.")
-            return
-        }
-
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-
-        val timeSource = TimeSource.Monotonic
-        val markStart = timeSource.markNow()
-        var timeElapsedInMinutes: Long = 0
-        var gateOpened: Boolean = false
-
-        while (timeElapsedInMinutes < 10 && !gateOpened) {
-            try {
-                // Use a CancellationToken so we can use await() and make this call suspend-friendly
-                val cts = CancellationTokenSource()
-                val location: Location? = try {
-                    fusedLocationClient.getCurrentLocation(
-                        Priority.PRIORITY_HIGH_ACCURACY,
-                        cts.token
-                    ).await()
-                } catch (e: Exception) {
-                    sendLogToMainActivity(context, "GeofenceReceiver - Błąd pobierania lokalizacji: ${e.message}")
-                    Log.e("GeofenceReceiver", "Błąd pobierania lokalizacji: ${e.message}")
-                    null
-                }
-
-                if (location != null) {
-                    // getting current location of user
-                    val currentLocation = LatLng(location.latitude, location.longitude)
-                    sendLogToMainActivity(context, "Aktualna lokalizacja: $currentLocation")
-
-                    val isNowInsidePolygon =
-                        PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
-
-                    if (isNowInsidePolygon) {
-                        sendLogToMainActivity(
-                            context,"GeofenceReceiver: Użytkownik wrócił do obszaru. Włączam bramę."
-                        )
-                        sendNotification(context, "Wróciłeś do domu! Uruchamiam bramę...")
-                        EwelinkDevices.toggleDevice(deviceId, "on")
-                        gateOpened = true
-                    }
-                }
-
-            } catch (e: Exception) {
-                Log.e("GeofenceReceiver", "Błąd podczas sprawdzania lokalizacji: ${e.message}", e)
-                sendNotification(context, "Błąd podczas sprawdzania lokalizacji")
-            }
-
-            // small delay to avoid a tight loop - adjust as needed
-            if (!gateOpened) delay(TimeUnit.SECONDS.toMillis(100))
-
-            timeElapsedInMinutes = markStart.elapsedNow().inWholeMinutes
-            sendLogToMainActivity(context, "Aktualnie sprawdzanie lokalizacji trwa $timeElapsedInMinutes minute/y")
         }
     }
 
