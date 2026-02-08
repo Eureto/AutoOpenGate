@@ -446,6 +446,7 @@ class MainActivity : AppCompatActivity() {
     private fun checkAndStartLocationMonitoring() {
         val selectedId = appPreferences.getSelectedDeviceId()
         val polygonJson = appPreferences.getPolygonCoordinates()
+        val polygonCenter = appPreferences.getPolygonCenter()
 
         // Check if device and polygon are selected
         if (selectedId.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
@@ -472,6 +473,7 @@ class MainActivity : AppCompatActivity() {
         // This intent servers as bridge to the service passing the selected device ID and polygon JSON
         serviceIntent.putExtra("deviceId", selectedId)
         serviceIntent.putExtra("polygonJson", polygonJson)
+        serviceIntent.putExtra("polygonCenter", polygonCenter)
 
         ContextCompat.startForegroundService(this, serviceIntent)
         addLogMessage("Uruchomionono LocationMonitorigService")

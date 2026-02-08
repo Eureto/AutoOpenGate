@@ -4,8 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys  //TODO: Change depracated MasterKeys to new implementation
+import com.google.android.gms.maps.model.LatLng
 import eureto.opendoor.BuildConfig
 import eureto.opendoor.network.model.LoginResponse
+import org.osmdroid.util.GeoPoint
 
 /**
  * Handles secure storage and retrieval of application preferences using encrypted SharedPreferences.
@@ -93,7 +95,7 @@ class AppPreferences(private val context: Context) {
     }
     // Saves polygon center as "latitude,longitude" string
 
-    fun savePolygonCenter(latLng: com.google.android.gms.maps.model.LatLng) {
+    fun savePolygonCenter(latLng: LatLng) {
         with(encryptedSharedPreferences.edit()) {
             putString("polygon_center", "${latLng.latitude},${latLng.longitude}")
             apply()

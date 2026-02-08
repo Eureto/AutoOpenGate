@@ -68,8 +68,11 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.2.1") // Use latest
     implementation("androidx.compose.ui:ui-viewbinding:1.6.8") // For ComposeView in XML
     implementation("androidx.activity:activity-compose:1.9.0") // For ComponentActivity.setContent if you use it elsewhere
-
-
+    
+    //OpenStreetMap
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
+    implementation("androidx.preference:preference-ktx:1.2.1")
+    
     // Google Maps
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.android.gms:play-services-location:21.2.0") // Dla FusedLocationProviderClient i Geofencing
@@ -87,7 +90,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0") // viewModelScope
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0") // lifecycleScope
-    //Dodano
+    
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
 
     // Bezpieczne przechowywanie danych

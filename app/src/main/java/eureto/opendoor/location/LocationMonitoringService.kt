@@ -46,7 +46,7 @@ class LocationMonitoringService : Service() {
     private var deviceIdToControl: String? = null
     private var polygonJson: String? = null
     private var polygonCoordinates: List<LatLng>? = null
-    private var isInsideGeofence = false // Stan, czy użytkownik jest w obszarze
+    private var polygonCenter: String? = null
 
     // Static values for intents and notifications
     companion object {
@@ -82,14 +82,16 @@ class LocationMonitoringService : Service() {
 
         deviceIdToControl = intent?.getStringExtra("deviceId")
         polygonJson = intent?.getStringExtra("polygonJson")
+        polygonCenter = intent?.getStringExtra("polygonCenter")
 
         // Check if deviceId and polygon are provided
-        if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
-            Log.e("LocationService", "Brak deviceId lub polygonJson. Sprawdzam czy nie ma zapisanych ustawień lokalizacji.")
+        if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty() || polygonCenter == null) {
+            Log.e("LocationService", "Brak deviceId lub polygonJson lub centerPolygon. Sprawdzam czy nie ma zapisanych ustawień lokalizacji.")
             deviceIdToControl = appPreferences.getSelectedDeviceId()
             polygonJson = appPreferences.getPolygonCoordinates()
+            polygonCenter = appPreferences.getPolygonCenter()
 
-            if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
+            if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty() || polygonCenter == null) {
                 Log.e("LocationService", "Brak zapisanych ustawień lokalizacji. Zatrzymuję usługę.")
                 stopSelf()
                 return START_NOT_STICKY
@@ -98,6 +100,7 @@ class LocationMonitoringService : Service() {
 
         when(intent?.action){
             ACTION_OPEN_GATE -> {
+                sendLogToMainActivity("Otwarto brame ręcznie z poziomu powiadomienia")
                 EwelinkDevices.toggleDevice(deviceIdToControl!!, "on")
                 return START_STICKY;
             }
@@ -251,14 +254,23 @@ class LocationMonitoringService : Service() {
             return
         }
 
-        val polygon = polygonCoordinates
-        if (polygon.isNullOrEmpty() || polygon.size < 3) {
-            Log.e("LocationService", "Brak zdefiniowanego wielokąta do geofencingu.")
+        var center = polygonCenter
+        if (center.isNullOrEmpty()) {
+            sendLogToMainActivity("LocationService: Centralnego punktu geofencingu")
             return
         }
 
-        // Calculate the centroid of the polygon and then use big radius for geofence
-        val centroid = calculatePolygonCentroid(polygon)
+        // Retrive from json center points of polygon
+        val centroid = try {
+            val parts = center.split(",")
+            val lng = parts[0].toDouble()
+            val lat = parts[1].toDouble()
+            LatLng(lat, lng)
+        } catch (e: Exception) {
+            Log.e("LocationService", "Błąd parsowania środka wielokąta: $center")
+            return
+        }
+        sendLogToMainActivity("LocationService: Centroid: $centroid")
 
         val geofence = Geofence.Builder()
             .setRequestId(GEOFENCE_REQUEST_ID)

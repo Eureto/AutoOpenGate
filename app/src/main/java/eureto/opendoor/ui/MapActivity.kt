@@ -1,43 +1,86 @@
 package eureto.opendoor.ui
 
 import android.graphics.Color
+import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.OnMapReadyCallback
-import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.Polygon
-import com.google.android.gms.maps.model.PolygonOptions
+import org.osmdroid.config.Configuration
+import org.osmdroid.views.overlay.Polygon
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import eureto.opendoor.R // Upewnij się, że masz R.id.map
-import eureto.opendoor.data.AppPreferences // Zmień nazwę pakietu
-import eureto.opendoor.databinding.ActivityMapBinding // Zmień nazwę pakietu
-import eureto.opendoor.network.EwelinkApiClient // Zmień nazwę pakietu
+import eureto.opendoor.data.AppPreferences
+import eureto.opendoor.databinding.ActivityMapBinding
+import eureto.opendoor.network.EwelinkApiClient
+import org.osmdroid.api.IMapController
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import org.osmdroid.events.MapEventsReceiver
 
-class MapActivity : AppCompatActivity(), OnMapReadyCallback {
+class MapActivity : AppCompatActivity(){
 
     private lateinit var binding: ActivityMapBinding
-    private lateinit var mMap: GoogleMap
     private lateinit var appPreferences: AppPreferences
-    private val polygonPoints = mutableListOf<LatLng>()
+    private val polygonPoints = mutableListOf<GeoPoint>()
     private var drawnPolygon: Polygon? = null
     private val gson = Gson()
+    lateinit var mMap: MapView
+    lateinit var controller: IMapController
+    lateinit var mMyLocationOverlay: MyLocationNewOverlay
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        Configuration.getInstance().load(this, androidx.preference.PreferenceManager.getDefaultSharedPreferences(this))
+        Configuration.getInstance().userAgentValue = packageName
+
         binding = ActivityMapBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         appPreferences = EwelinkApiClient.getAppPreferences()
 
-        val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
-        mapFragment.getMapAsync(this)
+        mMap = binding.osmmap
+        mMap.setTileSource(TileSourceFactory.MAPNIK)
+        mMap.mapCenter
+        mMap.setMultiTouchControls(true)
+        mMap.getLocalVisibleRect(Rect())
 
+        mMyLocationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(this), mMap)
+        controller = mMap.controller
+
+        mMyLocationOverlay.enableMyLocation()
+        mMyLocationOverlay.enableFollowLocation()
+        mMyLocationOverlay.isDrawAccuracyEnabled = true
+        mMyLocationOverlay.runOnFirstFix {
+            runOnUiThread {
+                controller.setCenter(mMyLocationOverlay.myLocation);
+                controller.animateTo(mMyLocationOverlay.myLocation)
+            }
+        }
+        // val mapPoint = GeoPoint(latitude, longitude)
+        val eventsOverlay = MapEventsOverlay(object : MapEventsReceiver {
+            override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
+                polygonPoints.add(p)
+                redrawPolygon()
+                return true
+            }
+
+            override fun longPressHelper(p: GeoPoint): Boolean = false
+        })
+        mMap.overlays.add(eventsOverlay)
+        controller.setZoom(18.0)
+        mMap.overlays.add(mMyLocationOverlay)
+
+        loadPolygon()
+
+
+        //BUTTON BINDINGS
         binding.btnSaveArea.setOnClickListener {
             savePolygon()
         }
@@ -47,32 +90,26 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    override fun onMapReady(googleMap: GoogleMap) {
-        mMap = googleMap
-
-        // Default location to show is warsaw
-        val warsaw = LatLng( 52.211, 21.0122)
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(warsaw, 10f))
-
-
-        mMap.setOnMapClickListener { latLng ->
-            polygonPoints.add(latLng)
-            redrawPolygon()
-        }
-
-        loadPolygon()
-    }
 
     private fun redrawPolygon() {
-        drawnPolygon?.remove()
-        if (polygonPoints.size > 1) {
-            val polygonOptions = PolygonOptions()
-                .addAll(polygonPoints)
-                .strokeColor(Color.BLUE)
-                .fillColor(Color.argb(70, 0, 0, 255)) // Light blue
-                .strokeWidth(5f)
-            drawnPolygon = mMap.addPolygon(polygonOptions)
+        // Remove old polygon if it exists
+        drawnPolygon?.let {
+            mMap.overlays.remove(it)
         }
+
+        if (polygonPoints.size >= 2) {
+            //Create the osmdroid Polygon
+            val newPolygon = org.osmdroid.views.overlay.Polygon(mMap)
+            newPolygon.points = polygonPoints
+
+            newPolygon.fillPaint.color = Color.argb(70, 0, 0, 255)
+            newPolygon.outlinePaint.color = Color.BLUE
+            newPolygon.outlinePaint.strokeWidth = 5f
+            newPolygon.setOnClickListener { polygon, mapView, eventPos -> false } // Disable message icon when clicked inside polygon.
+            drawnPolygon = newPolygon
+            mMap.overlays.add(drawnPolygon)
+        }
+        mMap.invalidate() // Refresh map
     }
 
     private fun savePolygon() {
@@ -85,7 +122,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         // Also save center point of the polygon for geofencing
         val centerLat = polygonPoints.map { it.latitude }.average()
         val centerLng = polygonPoints.map { it.longitude }.average()
-        appPreferences.savePolygonCenter(LatLng(centerLat, centerLng))
+        appPreferences.savePolygonCenter(LatLng(centerLng, centerLat))
 
         Toast.makeText(this, "Obszar domu zapisany pomyślnie!", Toast.LENGTH_SHORT).show()
         Log.d("MapActivity", "Zapisano wielokąt: $json")
@@ -95,28 +132,31 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun loadPolygon() {
         val json = appPreferences.getPolygonCoordinates()
         if (!json.isNullOrEmpty()) {
-            val type = object : TypeToken<List<LatLng>>() {}.type
-            val savedPoints: List<LatLng> = gson.fromJson(json, type)
+            val type = object : TypeToken<List<GeoPoint>>() {}.type
+            val savedPoints: List<GeoPoint> = gson.fromJson(json, type)
             polygonPoints.clear()
             polygonPoints.addAll(savedPoints)
             redrawPolygon()
-            // Przesuń kamerę do środka wielokąta
-            if (polygonPoints.isNotEmpty()) {
-                val bounds = com.google.android.gms.maps.model.LatLngBounds.Builder()
-                for (point in polygonPoints) {
-                    bounds.include(point)
-                }
-                mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), 100))
-            }
-            Log.d("MapActivity", "Załadowano wielokąt: $json")
         }
     }
 
     private fun clearPolygon() {
         polygonPoints.clear()
-        drawnPolygon?.remove()
-        drawnPolygon = null
-        appPreferences.savePolygonCoordinates("") // Wyczyść z preferencji
-        Toast.makeText(this, "Obszar wyczyszczony.", Toast.LENGTH_SHORT).show()
+        if (drawnPolygon != null) {
+            mMap.overlays.remove(drawnPolygon)
+            drawnPolygon = null
+        }
+        appPreferences.savePolygonCoordinates("")
+        mMap.invalidate()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        mMap.onResume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        mMap.onPause()
     }
 }
