@@ -135,8 +135,9 @@ class MapActivity : AppCompatActivity(){
     private fun loadPolygon() {
         val json = appPreferences.getPolygonCoordinates()
         if (!json.isNullOrEmpty()) {
-            val type = object : TypeToken<List<GeoPoint>>() {}.type
-            val savedPoints: List<GeoPoint> = gson.fromJson(json, type)
+            val type = object : TypeToken<List<LatLng>>() {}.type
+            val savedPointsLatLng: List<LatLng> = gson.fromJson(json, type)
+            val savedPoints = savedPointsLatLng.map { GeoPoint(it.latitude, it.longitude) }
             polygonPoints.clear()
             polygonPoints.addAll(savedPoints)
             redrawPolygon()
