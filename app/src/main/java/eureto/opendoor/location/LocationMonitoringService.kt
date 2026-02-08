@@ -55,7 +55,7 @@ class LocationMonitoringService : Service() {
         const val NOTIFICATION_CHANNEL_ID = "eureto_opendoor_location_channel"
         const val NOTIFICATION_ID = 123
         const val GEOFENCE_REQUEST_ID = "home_area_geofence"
-        const val GEOFENCE_RADIUS_METERS = 1000f // TODO: Maybe add option to set radius in app
+        const val GEOFENCE_RADIUS_METERS = 1500f // TODO: Maybe add option to set radius in app
         const val ACTION_GEOFENCE_TRANSITION = "eureto.opendoor.ACTION_GEOFENCE_TRANSITION"
         const val ACTION_OPEN_GATE = "eureto.opendoor.ACTION_OPEN_GATE"
         const val ACTION_STOP_SERVICE = "eureto.opendoor.ACTION_STOP_SERVICE"

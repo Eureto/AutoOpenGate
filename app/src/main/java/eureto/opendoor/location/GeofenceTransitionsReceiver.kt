@@ -53,7 +53,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
     private val gson = Gson()
     private val scope = CoroutineScope(Dispatchers.Main)
     private val TAG = "GeofenceTransitionsReceiver"
-
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
     /**
      * Constants for local broadcasts to MainActivity. It is used to send log messages to MainActivity and display them in the UI.
      */
@@ -88,7 +88,6 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         }
 
         val geofenceTransition = geofencingEvent.geofenceTransition
-        val triggeringLocation = geofencingEvent.triggeringLocation
 
         // get the stored preferences
         val appPreferences = EwelinkApiClient.getAppPreferences()
@@ -122,8 +121,11 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
                 val pendingResult = goAsync()
                 scope.launch {
                     try {
+                        sendLogToMainActivity(context, "Sprawdzanie lokalizacji w tle...")
+                        sendLogToMainActivity(context, "Dane przekazane do sprawdzania \n deviceId: $deviceId \n polygonCoordinates: $polygonCoordinates")
                         performLocationCheck(context, deviceId, polygonCoordinates, appPreferences)
                     } finally {
+                        sendLogToMainActivity(context, "GeofenceReceiver: Koniec sprawdzania lokalizacji w tle")
                         pendingResult.finish()
                     }
                 }
@@ -245,7 +247,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
     // This functions handles everything after user enters geofence area
     // It check location of user for 10 minutes and if user enters selected are it opens the gate
     // If user doesn't enter selected area it does nothing
-    private suspend fun performLocationCheck(
+    private suspend  fun performLocationCheck(
         context: Context,
         deviceId: String,
         polygonCoordinates: List<LatLng>,
@@ -270,7 +272,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
             return
         }
 
-        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
 
         val timeSource = TimeSource.Monotonic
         val markStart = timeSource.markNow()
@@ -287,6 +289,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
                         cts.token
                     ).await()
                 } catch (e: Exception) {
+                    sendLogToMainActivity(context, "GeofenceReceiver - Błąd pobierania lokalizacji: ${e.message}")
                     Log.e("GeofenceReceiver", "Błąd pobierania lokalizacji: ${e.message}")
                     null
                 }
