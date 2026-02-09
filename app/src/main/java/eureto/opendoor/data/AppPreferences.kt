@@ -105,4 +105,13 @@ class AppPreferences(private val context: Context) {
     fun getPolygonCenter(): String? = encryptedSharedPreferences.getString("polygon_center", null)
     // Returns saved polygon coordinates JSON string
     fun getPolygonCoordinates(): String? = encryptedSharedPreferences.getString("polygon_coordinates", null)
+
+    fun getIsLocationCheckWorkerRunning(): Boolean = encryptedSharedPreferences.getBoolean("is_location_check_worker_running", false)
+
+    fun setIsLocationCheckWorkerRunning(value: Boolean) {
+        with(encryptedSharedPreferences.edit()) {
+            putBoolean("is_location_check_worker_running", value)
+            apply()
+        }
+    }
 }

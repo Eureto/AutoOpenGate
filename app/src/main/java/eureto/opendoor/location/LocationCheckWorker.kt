@@ -23,6 +23,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.google.maps.android.PolyUtil
 import eureto.opendoor.R
+import eureto.opendoor.data.AppPreferences
 import eureto.opendoor.location.GeofenceTransitionsReceiver.Companion.ACTION_LOG_UPDATE
 import eureto.opendoor.location.GeofenceTransitionsReceiver.Companion.EXTRA_LOG_MESSAGE
 import eureto.opendoor.network.EwelinkDevices
@@ -31,12 +32,18 @@ import kotlinx.coroutines.tasks.await
 import java.util.concurrent.TimeUnit
 import kotlin.time.TimeSource
 
+
 class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): CoroutineWorker(appContext, workerParams) {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private val notificationChannelId = LocationMonitoringService.NOTIFICATION_CHANNEL_ID // same as in LocationMonitoringService
     private val notificationId = 1001
 
+
     override suspend fun doWork(): Result{
+        val appPreferences = eureto.opendoor.network.EwelinkApiClient.getAppPreferences()
+
+        if(appPreferences.getIsLocationCheckWorkerRunning()) return Result.failure()
+        appPreferences.setIsLocationCheckWorkerRunning(true)
 
         val context = applicationContext
         val deviceId = inputData.getString("deviceId")
@@ -46,6 +53,7 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
 
         if(deviceId == null || polygonCoordinates == null){
             Log.e("GeofenceReceiver", "Brak wymaganych danych do sprawdzania lokalizacji")
+            appPreferences.setIsLocationCheckWorkerRunning(false)
             return Result.failure()
         }
 
@@ -65,6 +73,7 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
                 "Brak uprawnień do lokalizacji podczas performLocationCheck. Zatrzymuję."
             )
             sendNotification(context, "Błąd: Brak uprawnień do lokalizacji do sprawdzania w tle.")
+            appPreferences.setIsLocationCheckWorkerRunning(false)
             return Result.failure()
         }
 
@@ -119,7 +128,7 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
             timeElapsedInMinutes = markStart.elapsedNow().inWholeMinutes
             sendLogToMainActivity(context, "Aktualnie sprawdzanie lokalizacji trwa $timeElapsedInMinutes minute/y")
         }
-
+        appPreferences.setIsLocationCheckWorkerRunning(false)
         return Result.success()
 
     }

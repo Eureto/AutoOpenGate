@@ -53,7 +53,7 @@ class LocationMonitoringService : Service() {
         const val NOTIFICATION_CHANNEL_ID = "eureto_opendoor_location_channel"
         const val NOTIFICATION_ID = 123
         const val GEOFENCE_REQUEST_ID = "home_area_geofence"
-        const val GEOFENCE_RADIUS_METERS = 1500f // TODO: Maybe add option to set radius in app
+        const val GEOFENCE_RADIUS_METERS = 1000f // TODO: Maybe add option to set radius in app
         const val ACTION_GEOFENCE_TRANSITION = "eureto.opendoor.ACTION_GEOFENCE_TRANSITION"
         const val ACTION_OPEN_GATE = "eureto.opendoor.ACTION_OPEN_GATE"
         const val ACTION_STOP_SERVICE = "eureto.opendoor.ACTION_STOP_SERVICE"
@@ -255,7 +255,8 @@ class LocationMonitoringService : Service() {
             .setRequestId(GEOFENCE_REQUEST_ID)
             .setCircularRegion(centroid.latitude, centroid.longitude, GEOFENCE_RADIUS_METERS)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
+            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
+            .setLoiteringDelay(62000)
             .build()
 
         val geofencingRequest = GeofencingRequest.Builder()
