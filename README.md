@@ -9,6 +9,7 @@ If the user enters the selected area, a toggle signal is sent to the device (e.g
     <img src="AppScreenshots/2.jpg" width="200">
     <img src="AppScreenshots/3.jpg" width="200">
 </div>
+
 ToDo:
 - Add option to set geofence radius
 - change local.defaults.properties to secrets.properties.default
