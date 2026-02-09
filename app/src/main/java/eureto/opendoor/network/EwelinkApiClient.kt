@@ -2,7 +2,7 @@ package eureto.opendoor.network
 
 import android.content.Context
 import com.google.gson.GsonBuilder
-import eureto.opendoor.data.AppPreferences // Zmień nazwę pakietu
+import eureto.opendoor.data.AppPreferences
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -71,9 +71,6 @@ object EwelinkApiClient {
             .create(EwelinkApiService::class.java)
     }
 
-    fun createWebSocketClient(): EwelinkWebSocketClient {
-        return EwelinkWebSocketClient(webSocketOkHttpClient, appPreferences, gson)
-    }
 
     fun getAppPreferences(): AppPreferences {
         return appPreferences

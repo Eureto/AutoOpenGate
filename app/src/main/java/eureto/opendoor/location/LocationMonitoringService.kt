@@ -24,7 +24,6 @@ import eureto.opendoor.R
 import eureto.opendoor.data.AppPreferences
 import eureto.opendoor.network.EwelinkApiClient
 import eureto.opendoor.network.EwelinkDevices
-import eureto.opendoor.network.EwelinkWebSocketClient
 import kotlinx.coroutines.*
 import java.util.concurrent.TimeUnit
 
@@ -38,8 +37,7 @@ class LocationMonitoringService : Service() {
 
     private lateinit var geofencingClient: GeofencingClient
     private lateinit var appPreferences: AppPreferences
-    private lateinit var ewelinkWebSocketClient: EwelinkWebSocketClient
-    private lateinit var notificationManager: NotificationManager
+        private lateinit var notificationManager: NotificationManager
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val gson = Gson()
 
@@ -66,7 +64,6 @@ class LocationMonitoringService : Service() {
         super.onCreate()
         geofencingClient = LocationServices.getGeofencingClient(this)
         appPreferences = EwelinkApiClient.getAppPreferences()
-        ewelinkWebSocketClient = EwelinkApiClient.createWebSocketClient()
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannel()
     }
@@ -125,26 +122,9 @@ class LocationMonitoringService : Service() {
             return START_NOT_STICKY
         }
 
-
         startForeground(NOTIFICATION_ID, createNotification("Monitorowanie lokalizacji aktywne.").build())
 
-
-        // TODO: Do i need this websocket?
-        // Connect to WebSocket if not already connected
-        if (ewelinkWebSocketClient.webSocket == null) {
-            ewelinkWebSocketClient.connect()
-        }
-
         addGeofences()
-
-        // TODO: Check if it is needed in documentation
-        // Start ping coroutine to keep WebSocket alive
-        serviceScope.launch {
-            while (isActive) {
-                delay(TimeUnit.SECONDS.toMillis(30)) // Send ping every 30 seconds
-                ewelinkWebSocketClient.sendPing()
-            }
-        }
 
         return START_STICKY
     }
@@ -157,7 +137,6 @@ class LocationMonitoringService : Service() {
         super.onDestroy()
         Log.d("LocationService", "onDestroy executed")
         removeGeofences()
-        ewelinkWebSocketClient.disconnect()
         serviceScope.cancel()
         stopForeground(true)
     }

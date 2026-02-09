@@ -7,7 +7,7 @@ import androidx.security.crypto.MasterKeys  //TODO: Change depracated MasterKeys
 import com.google.android.gms.maps.model.LatLng
 import eureto.opendoor.BuildConfig
 import eureto.opendoor.network.model.LoginResponse
-import org.osmdroid.util.GeoPoint
+
 
 /**
  * Handles secure storage and retrieval of application preferences using encrypted SharedPreferences.

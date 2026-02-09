@@ -7,9 +7,9 @@ import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import eureto.opendoor.data.AppPreferences // Zmień nazwę pakietu
-import eureto.opendoor.databinding.ActivityLoginBinding // Zmień nazwę pakietu
-import eureto.opendoor.network.EwelinkApiClient // Zmień nazwę pakietu
+import eureto.opendoor.data.AppPreferences
+import eureto.opendoor.databinding.ActivityLoginBinding
+import eureto.opendoor.network.EwelinkApiClient
 import kotlinx.coroutines.launch
 import java.util.UUID
 import java.security.InvalidKeyException
@@ -17,7 +17,7 @@ import java.security.NoSuchAlgorithmException
 import java.nio.charset.StandardCharsets
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import android.util.Base64 // Import dla Base64
+import android.util.Base64
 import eureto.opendoor.network.model.AccessTokenRequestBody
 import com.google.gson.Gson
 

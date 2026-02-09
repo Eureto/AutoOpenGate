@@ -1,17 +1,14 @@
 package eureto.opendoor.location
-
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.location.Location
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
@@ -19,29 +16,12 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofenceStatusCodes
 import com.google.android.gms.location.GeofencingEvent
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.tasks.CancellationTokenSource
-import com.google.maps.android.PolyUtil
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import eureto.opendoor.R
-import eureto.opendoor.data.AppPreferences
 import eureto.opendoor.network.EwelinkApiClient
-import eureto.opendoor.network.model.DeviceControlParams
-import eureto.opendoor.network.model.DeviceControlRequest
-import eureto.opendoor.network.EwelinkDevices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.tasks.await
-import java.lang.Thread.sleep
-import kotlin.time.TimeSource
-import kotlin.time.measureTime
 
 /**
  * BroadcastReceiver to handle geofence transition events.

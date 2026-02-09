@@ -20,54 +20,20 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Divider
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.view.setMargins
-import androidx.core.view.setPadding
 import androidx.lifecycle.lifecycleScope
-import eureto.opendoor.data.AppPreferences // Zmień nazwę pakietu
-import eureto.opendoor.databinding.ActivityMainBinding // Zmień nazwę pakietu
-import eureto.opendoor.location.LocationMonitoringService // Zmień nazwę pakietu
-import eureto.opendoor.network.EwelinkApiClient // Zmień nazwę pakietu
-import eureto.opendoor.network.EwelinkWebSocketClient // Zmień nazwę pakietu
-import eureto.opendoor.network.model.Device // Zmień nazwę pakietu
-import eureto.opendoor.network.model.DeviceControlParams
-import eureto.opendoor.network.model.DeviceControlRequest
-import kotlinx.coroutines.flow.collectLatest
+import eureto.opendoor.data.AppPreferences
+import eureto.opendoor.databinding.ActivityMainBinding
+import eureto.opendoor.location.LocationMonitoringService
+import eureto.opendoor.network.EwelinkApiClient
+import eureto.opendoor.network.model.Device
 import kotlinx.coroutines.launch
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.LatLng
 import eureto.opendoor.network.EwelinkDevices
 import java.text.SimpleDateFormat
-import java.util.Date // Upewnij się, że ten import jest obecny
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import kotlin.concurrent.write
+import java.util.Date
 
 class MainActivity : AppCompatActivity() {
 
@@ -75,7 +41,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var appPreferences: AppPreferences
     private lateinit var ewelinkApiClient: EwelinkApiClient
-    private lateinit var ewelinkWebSocketClient: EwelinkWebSocketClient
     private var deviceList: List<Device> = emptyList()
     private var selectedDeviceId: String? = null
     private var logReceiver: BroadcastReceiver? = null
@@ -130,7 +95,6 @@ class MainActivity : AppCompatActivity() {
 
         appPreferences = EwelinkApiClient.getAppPreferences()
         ewelinkApiClient = EwelinkApiClient
-        ewelinkWebSocketClient = ewelinkApiClient.createWebSocketClient()
 
         // Sprawdź uprawnienia do powiadomień (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -144,7 +108,6 @@ class MainActivity : AppCompatActivity() {
         setupLogReceiver()
         setupUI()
         fetchDevices()
-        observeDeviceStatusUpdates()
     }
 
     override fun onResume() {
@@ -163,7 +126,6 @@ class MainActivity : AppCompatActivity() {
     private fun setupUI() {
         binding.btnLogout.setOnClickListener {
             appPreferences.clearLoginData()
-            ewelinkWebSocketClient.disconnect()
             stopLocationMonitoringService() // Zatrzymaj usługę lokalizacji
             val intent = Intent(this, LoginActivity::class.java)
             startActivity(intent)
@@ -406,27 +368,6 @@ class MainActivity : AppCompatActivity() {
                 Log.e("MainActivity", "Błąd podczas pobierania urządzeń: ${e.message}", e)
                 deviceList = emptyList() // Upewnij się, że lista jest pusta w przypadku błędu
                 binding.spinnerDevices.adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, listOf("Brak urządzeń"))
-            }
-        }
-    }
-
-    // Listen to device status updates
-    private fun observeDeviceStatusUpdates() {
-        lifecycleScope.launch {
-            ewelinkWebSocketClient.deviceStatusUpdatesFlow.collectLatest { device ->
-                // Zaktualizuj UI na podstawie otrzymanego statusu
-                if (device.deviceid == selectedDeviceId) {
-                    val newSwitchState = device.params.switch
-                    if (newSwitchState == "on") {
-                        binding.btnToggleDevice.text = "Wyłącz"
-                        binding.tvDeviceCurrentStatus.text = "Status: Włączone"
-                    } else if (newSwitchState == "off") {
-                        binding.btnToggleDevice.text = "Włącz"
-                        binding.tvDeviceCurrentStatus.text = "Status: Wyłączone"
-                    }
-                    Toast.makeText(this@MainActivity, "Status urządzenia ${device.name} zmieniony na: $newSwitchState", Toast.LENGTH_SHORT).show()
-                }
-
             }
         }
     }
