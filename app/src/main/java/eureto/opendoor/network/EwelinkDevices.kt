@@ -38,11 +38,11 @@ object EwelinkDevices{
         sendBroadcastLog("Przerwarzanie toggleDevice")
 
 
-        return; //TODO: Usuń ten return, jest tylko do testów, fukcja działa
+        //return; //TODO: Usuń ten return, jest tylko do testów, fukcja działa
 
 
         val myScope = CoroutineScope(Dispatchers.IO+Job())
-
+ 
     myScope.launch {
         try {
             val apiService = ewelinkApiClient.createApiService()
