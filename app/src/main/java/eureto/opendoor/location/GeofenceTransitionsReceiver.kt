@@ -50,17 +50,18 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
     //
     override fun onReceive(context: Context?, intent: Intent?) {
-        Log.d("GeofenceReceiver", "Otrzymano złgłoszenie Geofence")
         sendLogToMainActivity( context ?: return, "Otrzymano złgłoszenie Geofence")
 
         if (context == null || intent?.action != LocationMonitoringService.ACTION_GEOFENCE_TRANSITION) {
             Log.e("GeofenceReceiver", "Nieznana akcja lub brak kontekstu: ${intent?.action}")
+            sendLogToMainActivity(context, "Nieznana akcja lub brak kontekstu: ${intent?.action}")
             return
         }
 
         val geofencingEvent = GeofencingEvent.fromIntent(intent)
         if (geofencingEvent == null) {
             Log.e("GeofenceReceiver", "Błąd: geofencingEvent jest nullem.")
+            sendLogToMainActivity(context, "Błąd: geofencingEvent jest nullem.")
             return
         }
 
@@ -68,6 +69,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
             val errorMessage = GeofenceStatusCodes.getStatusCodeString(geofencingEvent.errorCode)
             Log.e("GeofenceReceiver", "Błąd Geofence: $errorMessage")
             sendNotification(context, "Błąd monitorowania lokalizacji: $errorMessage")
+            sendLogToMainActivity(context, "Błąd Geofence: $errorMessage")
             return
         }
 

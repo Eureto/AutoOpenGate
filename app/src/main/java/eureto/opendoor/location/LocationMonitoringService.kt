@@ -274,6 +274,7 @@ class LocationMonitoringService : Service() {
         geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent)
             .addOnSuccessListener {
                 Log.d("LocationService", "Geofence dodany pomyślnie.")
+                sendLogToMainActivity("LocationService: Geofence dodany pomyślnie.")
                 updateNotification("Monitorowanie aktywne: Obszar dodany.")
             }
             .addOnFailureListener { e ->
@@ -300,7 +301,7 @@ class LocationMonitoringService : Service() {
     }
 
     private fun removeGeofences() {
-        sendLogToMainActivity("Usuwanie Geofences w removeGeofences()")
+        sendLogToMainActivity("Usuwanie Geofence")
         geofencingClient.removeGeofences(listOf(GEOFENCE_REQUEST_ID))
             .addOnSuccessListener {
 
@@ -309,17 +310,6 @@ class LocationMonitoringService : Service() {
             .addOnFailureListener { e ->
                 sendLogToMainActivity("LocationService: Błąd usuwania Geofence: ${e.message}")
             }
-    }
-
-    // Calculate the centroid of a polygon given its vertices
-    private fun calculatePolygonCentroid(polygon: List<LatLng>): LatLng {
-        var latitude = 0.0
-        var longitude = 0.0
-        for (point in polygon) {
-            latitude += point.latitude
-            longitude += point.longitude
-        }
-        return LatLng(latitude / polygon.size, longitude / polygon.size)
     }
 
     private fun updateNotification(message: String) {

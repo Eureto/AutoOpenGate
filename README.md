@@ -15,7 +15,7 @@ ToDo:
 - change local.defaults.properties to secrets.properties.default
 - check if ewelink secret expired and refresh it
 - do not fetch devices every time app starts
-- prompt user for high accuracy location permission 
+- prompt user for high accuracy location permission at the start of app
 
 
 Compilation:

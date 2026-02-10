@@ -52,7 +52,8 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
         val polygonCoordinates: List<LatLng> = Gson().fromJson(polygonCoordinatesJSON, type)
 
         if(deviceId == null || polygonCoordinates == null){
-            Log.e("GeofenceReceiver", "Brak wymaganych danych do sprawdzania lokalizacji")
+            sendNotification(context, "Błąd: Brak wymaganych danych do sprawdzania lokalizacji.")
+            sendLogToMainActivity(context, "GeofenceReceiver: Brak wymaganych danych do sprawdzania lokalizacji")
             appPreferences.setIsLocationCheckWorkerRunning(false)
             return Result.failure()
         }
@@ -68,11 +69,8 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
         ) == PackageManager.PERMISSION_GRANTED
 
         if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
-            Log.e(
-                "GeofenceReceiver",
-                "Brak uprawnień do lokalizacji podczas performLocationCheck. Zatrzymuję."
-            )
             sendNotification(context, "Błąd: Brak uprawnień do lokalizacji do sprawdzania w tle.")
+            sendLogToMainActivity(context, "GeofenceReceiver: Brak uprawnień do lokalizacji do sprawdzania w tle. kod:asdf1")
             appPreferences.setIsLocationCheckWorkerRunning(false)
             return Result.failure()
         }
@@ -86,7 +84,6 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
 
         while (timeElapsedInMinutes < 10 && !gateOpened) {
             try {
-                // Use a CancellationToken so we can use await() and make this call suspend-friendly
                 val cts = CancellationTokenSource()
                 val location: Location? = try {
                     fusedLocationClient.getCurrentLocation(
@@ -95,12 +92,11 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
                     ).await()
                 } catch (e: Exception) {
                     sendLogToMainActivity(context, "GeofenceReceiver - Błąd pobierania lokalizacji: ${e.message}")
-                    Log.e("GeofenceReceiver", "Błąd pobierania lokalizacji: ${e.message}")
                     null
                 }
 
+                // Getting current location of user
                 if (location != null) {
-                    // getting current location of user
                     val currentLocation = LatLng(location.latitude, location.longitude)
                     sendLogToMainActivity(context, "Aktualna lokalizacja: $currentLocation")
 
@@ -118,8 +114,8 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
                 }
 
             } catch (e: Exception) {
-                Log.e("GeofenceReceiver", "Błąd podczas sprawdzania lokalizacji: ${e.message}", e)
                 sendNotification(context, "Błąd podczas sprawdzania lokalizacji")
+                sendLogToMainActivity(context, "GeofenceReceiver: Błąd podczas sprawdzania lokalizacji: ${e.message}")
             }
 
             // small delay to save battery
@@ -132,8 +128,8 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
         return Result.success()
 
     }
-    // TODO: make one place for sendign notification
 
+    // TODO: make one place for sendign notification
     private fun sendNotification(context: Context?, message: String) {
         if (context == null) return
 
@@ -155,10 +151,8 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
                     notify(notificationId, builder.build())
                 }
             } else {
-                Log.w(
-                    "GeofenceReceiver",
-                    "Brak uprawnień do wysyłania powiadomień na Androidzie 13+."
-                )
+                sendNotification(context, "Brak uprawnień do wysyłania powiadomień")
+                sendLogToMainActivity(context, "Brak uprawnień do wysyłania powiadomień KOD:asdsafyd87vcx")
             }
         } else {
             // Dla Androida < 13, uprawnienia do powiadomień są domyślnie przyznane
