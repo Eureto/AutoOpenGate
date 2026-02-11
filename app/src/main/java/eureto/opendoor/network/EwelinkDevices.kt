@@ -47,13 +47,14 @@ object EwelinkDevices{
         try {
             val apiService = ewelinkApiClient.createApiService()
             val requestBody = DeviceControlRequest(
-                type = 1, // 1 dla urządzenia
+                type = 1, // 1 dla jednego urządzenia
                 id = deviceId,
                 params = DeviceControlParams(switch = state)
             )
             val response = apiService.setDeviceStatus(requestBody)
 
-            if (response.error == 0 && response.msg == "ok") {
+            // I set OR in this if because when I toggle device I get no msg but response.error = 0 and device is switching so...
+            if (response.error == 0) {
                 Log.d("MainActivity", "Status urządzenia $deviceId zmieniony na $state przez REST API.")
                 sendBroadcastLog("Status urządzenia $deviceId zmieniony na $state przez REST API.")
 

@@ -7,6 +7,34 @@
     android:orientation="vertical"
     tools:context="eureto.opendoor.ui.MapActivity">
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp">
+
+        <Button
+            android:id="@+id/btnTurnOnOffGeofence"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="Włącz Geofence" />
+
+        <EditText
+            android:id="@+id/inputGeofenceRadius"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:ems="10"
+            android:hint="Radius in meters"
+            android:imeOptions="actionDone"
+            android:inputType="numberSigned"
+            android:textAlignment="center" />
+
+    </LinearLayout>
+
     <org.osmdroid.views.MapView
         android:id="@+id/osmmap"
         android:layout_width="match_parent"

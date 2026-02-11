@@ -4,31 +4,37 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
+import android.view.inputmethod.EditorInfo
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.maps.model.LatLng
-import org.osmdroid.config.Configuration
-import org.osmdroid.views.overlay.Polygon
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import eureto.opendoor.data.AppPreferences
 import eureto.opendoor.databinding.ActivityMapBinding
 import eureto.opendoor.network.EwelinkApiClient
 import org.osmdroid.api.IMapController
+import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
+import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
-import org.osmdroid.events.MapEventsReceiver
 
 class MapActivity : AppCompatActivity(){
 
     private lateinit var binding: ActivityMapBinding
     private lateinit var appPreferences: AppPreferences
+    private var geofenceRadius: Int = 1000
+    private var isGeofenceEnabled: Boolean = true
+    private var centerLat: Double = 0.0
+    private var centerLng: Double = 0.0
     private val polygonPoints = mutableListOf<GeoPoint>()
     private var drawnPolygon: Polygon? = null
+    private var drawCircle: Polygon? = null
     private val gson = Gson()
     lateinit var mMap: MapView
     lateinit var controller: IMapController
@@ -44,6 +50,8 @@ class MapActivity : AppCompatActivity(){
         setContentView(binding.root)
 
         appPreferences = EwelinkApiClient.getAppPreferences()
+        geofenceRadius = appPreferences.getGeofenceRadius()
+
 
         mMap = binding.osmmap
         mMap.setTileSource(TileSourceFactory.MAPNIK)
@@ -88,12 +96,42 @@ class MapActivity : AppCompatActivity(){
         binding.btnClearArea.setOnClickListener {
             clearPolygon()
         }
+        binding.inputGeofenceRadius.setOnEditorActionListener { textView, actionId, event ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                val input = textView.text.toString().toIntOrNull()
+                if(input != null) {
+                    appPreferences.setGeofenceRadius(input)
+                    geofenceRadius = input
+                    Toast.makeText(this, "Promień geofence ustawiony na $input metrów.", Toast.LENGTH_SHORT).show()
+                    redrawPolygon()
+                }
+            }
+            false
+        }
+        binding.btnTurnOnOffGeofence.setOnClickListener {
+            val btnState = binding.btnTurnOnOffGeofence.text.toString()
+            if(btnState == "Włącz geofence") {
+                isGeofenceEnabled = true
+                appPreferences.setIsGeofenceEnabled(true)
+                binding.btnTurnOnOffGeofence.text = "Wyłącz geofence"
+                redrawPolygon()
+            }else{
+                appPreferences.setIsGeofenceEnabled(false)
+                isGeofenceEnabled = false
+                binding.btnTurnOnOffGeofence.text = "Włącz geofence"
+                redrawPolygon()
+            }
+
+        }
     }
 
 
     private fun redrawPolygon() {
         // Remove old polygon if it exists
         drawnPolygon?.let {
+            mMap.overlays.remove(it)
+        }
+        drawCircle?.let{
             mMap.overlays.remove(it)
         }
 
@@ -108,6 +146,18 @@ class MapActivity : AppCompatActivity(){
             newPolygon.setOnClickListener { polygon, mapView, eventPos -> false } // Disable message icon when clicked inside polygon.
             drawnPolygon = newPolygon
             mMap.overlays.add(drawnPolygon)
+
+            // create geofence circle
+            if(isGeofenceEnabled) {
+                val centerGeoPoint = GeoPoint(centerLat, centerLng)
+                val circlePoints: MutableList<GeoPoint?> =
+                    Polygon.pointsAsCircle(centerGeoPoint, geofenceRadius.toDouble())
+                var circle = Polygon(mMap)
+                circle.setPoints(circlePoints)
+                circle.getFillPaint().setColor(Color.argb(40, 255, 0, 0))
+                drawCircle = circle
+                mMap.getOverlayManager().add(drawCircle)
+            }
         }
         mMap.invalidate() // Refresh map
     }
@@ -117,14 +167,15 @@ class MapActivity : AppCompatActivity(){
             Toast.makeText(this, "Musisz zaznaczyć co najmniej 3 punkty, aby utworzyć wielokąt.", Toast.LENGTH_LONG).show()
             return
         }
+
         //Convert GeoPoints to LatLng format
         val polygonPoints = polygonPoints.map { LatLng(it.latitude, it.longitude) }
-
         val json = gson.toJson(polygonPoints)
         appPreferences.savePolygonCoordinates(json)
-        // Also save center point of the polygon for geofencing
-        val centerLat = polygonPoints.map { it.latitude }.average()
-        val centerLng = polygonPoints.map { it.longitude }.average()
+
+        // Save center point of the polygon for geofencing
+        centerLat = polygonPoints.map { it.latitude }.average()
+        centerLng = polygonPoints.map { it.longitude }.average()
         appPreferences.savePolygonCenter(LatLng(centerLng, centerLat))
 
         Toast.makeText(this, "Obszar domu zapisany pomyślnie!", Toast.LENGTH_SHORT).show()
@@ -140,6 +191,8 @@ class MapActivity : AppCompatActivity(){
             val savedPoints = savedPointsLatLng.map { GeoPoint(it.latitude, it.longitude) }
             polygonPoints.clear()
             polygonPoints.addAll(savedPoints)
+            centerLat = polygonPoints.map { it.latitude }.average()
+            centerLng = polygonPoints.map { it.longitude }.average()
             redrawPolygon()
         }
     }

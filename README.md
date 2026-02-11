@@ -11,7 +11,6 @@ If the user enters the selected area, a toggle signal is sent to the device (e.g
 </div>
 
 ToDo:
-- Add option to set geofence radius
 - change local.defaults.properties to secrets.properties.default
 - check if ewelink secret expired and refresh it
 - do not fetch devices every time app starts
