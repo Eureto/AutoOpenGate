@@ -54,6 +54,8 @@ class LocationMonitoringService : Service() {
     private var polygonJson: String? = null
     private var polygonCoordinates: List<LatLng>? = null
     private var polygonCenter: String? = null
+    private val scope = CoroutineScope(Dispatchers.Main)
+    private var locationCheckJob: Job? = null
 
     // Static values for intents and notifications
     companion object {
@@ -87,46 +89,16 @@ class LocationMonitoringService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d("LocationService", "onStartCommand")
 
-        deviceIdToControl = intent?.getStringExtra("deviceId")
-        polygonJson = intent?.getStringExtra("polygonJson")
-        polygonCenter = intent?.getStringExtra("polygonCenter")
+        deviceIdToControl = appPreferences.getSelectedDeviceId()
+        polygonJson = appPreferences.getPolygonCoordinates()
+        polygonCenter = appPreferences.getPolygonCenter()
 
-        when(intent?.action){
-            ACTION_OPEN_GATE -> {
-                sendLogToMainActivity("Otwarto brame ręcznie z poziomu powiadomienia")
-                val id = deviceIdToControl ?: appPreferences.getSelectedDeviceId()
-                if (!id.isNullOrEmpty()) {
-                    EwelinkDevices.toggleDevice(id, "on")
-                }
-                return START_STICKY;
-            }
-            ACTION_STOP_SERVICE -> {
-                stopSelf()
-                return START_NOT_STICKY
-            }
-            ACTION_START_LOCATION -> {
-                serviceScope.launch {
-                    checkLocation()
-                }
-            }
-        }
-
-        // Check if deviceId and polygon are provided
         if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty() || polygonCenter == null) {
-            Log.e("LocationService", "Brak deviceId lub polygonJson lub centerPolygon. Sprawdzam czy nie ma zapisanych ustawień lokalizacji.")
-            deviceIdToControl = appPreferences.getSelectedDeviceId()
-            polygonJson = appPreferences.getPolygonCoordinates()
-            polygonCenter = appPreferences.getPolygonCenter()
-
-            if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty() || polygonCenter == null) {
-                Log.e("LocationService", "Brak zapisanych ustawień lokalizacji. Zatrzymuję usługę.")
-                stopSelf()
-                return START_NOT_STICKY
-            }
+            Log.e("LocationService", "Brak zapisanych ustawień lokalizacji. Zatrzymuję usługę.")
+            stopSelf()
+            return START_NOT_STICKY
         }
 
-
-        // Parse polygon coordinates from JSON
         try {
             val type = object : TypeToken<List<LatLng>>() {}.type
             polygonCoordinates = gson.fromJson(polygonJson, type)
@@ -141,13 +113,46 @@ class LocationMonitoringService : Service() {
             return START_NOT_STICKY
         }
 
-        startForeground(NOTIFICATION_ID, createNotification("Monitorowanie lokalizacji aktywne.").build())
+        when (intent?.action) {
+            ACTION_OPEN_GATE -> {
+                sendLogToMainActivity("Otwarto brame ręcznie z poziomu powiadomienia")
+                val id = deviceIdToControl ?: appPreferences.getSelectedDeviceId()
+                if (!id.isNullOrEmpty()) {
+                    EwelinkDevices.toggleDevice(id, "on")
+                }
+                return START_STICKY;
+            }
+
+            ACTION_STOP_SERVICE -> {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+
+            ACTION_START_LOCATION -> {
+                if(locationCheckJob?.isActive == false || locationCheckJob == null) {
+                    locationCheckJob = scope.launch {
+                        checkLocation()
+                    }
+                }else {
+                    sendLogToMainActivity("LocationMonitorinService: Próba ponownego uruchominenia sprawdzania lokalizacji")
+                }
+                return START_STICKY
+            }
+        }
+
+
+        startForeground(
+            NOTIFICATION_ID,
+            createNotification("Monitorowanie lokalizacji aktywne.").build()
+        )
         val isGeofenceEnabled = appPreferences.getIsGeofenceEnabled()
 
-        if(isGeofenceEnabled) {
+        if (isGeofenceEnabled) {
             addGeofences()
-        }else{
-            //addManualChecking()
+        } else {
+            scope.launch {
+                checkLocation()
+            }
         }
         return START_STICKY
     }
@@ -155,6 +160,7 @@ class LocationMonitoringService : Service() {
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }
+
 
     override fun onDestroy() {
         super.onDestroy()
@@ -170,18 +176,19 @@ class LocationMonitoringService : Service() {
 
     // TODO: make this function work with and without geofence
     public suspend fun checkLocation() {
-        if(appPreferences.getIsLocationCheckWorkerRunning()) return
-        appPreferences.setIsLocationCheckWorkerRunning(true)
+        sendLogToMainActivity("inside checkLocation()")
+        //val isLocationCheckWorkerRunning = appPreferences.getIsLocationCheckWorkerRunning()
+        // if (isLocationCheckWorkerRunning) return // this does not work as expected
+        //appPreferences.setIsLocationCheckWorkerRunning(true)
 
         val isGeofenceEnabled = appPreferences.getIsGeofenceEnabled()
         val context = applicationContext
         val deviceId = deviceIdToControl
-        val polygonCoordinatesJSON = polygonCoordinates
 
-        if(deviceId == null || polygonCoordinates == null){
+        if (deviceId == null || polygonCoordinates == null) {
             updateNotification("Błąd: Brak wymaganych danych do sprawdzania lokalizacji.")
             sendLogToMainActivity("GeofenceReceiver: Brak wymaganych danych do sprawdzania lokalizacji")
-            appPreferences.setIsLocationCheckWorkerRunning(false)
+            //appPreferences.setIsLocationCheckWorkerRunning(false)
             return
         }
 
@@ -198,7 +205,7 @@ class LocationMonitoringService : Service() {
         if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
             updateNotification("Błąd: Brak uprawnień do lokalizacji do sprawdzania w tle.")
             sendLogToMainActivity("GeofenceReceiver: Brak uprawnień do lokalizacji do sprawdzania w tle. kod:asdf1")
-            appPreferences.setIsLocationCheckWorkerRunning(false)
+            //appPreferences.setIsLocationCheckWorkerRunning(false)
             return
         }
 
@@ -208,11 +215,15 @@ class LocationMonitoringService : Service() {
         val markStart = timeSource.markNow()
         var timeElapsedInMinutes: Long = 0
         var gateOpened: Boolean = false
+        var dynamicDelay: Long = 1
+        var location: Location? = null
 
-        while (timeElapsedInMinutes < 10 && !gateOpened && isGeofenceEnabled) {
+        // This logic decides if isGeofencingEnables is set to false then
+        // this while loop can be escaped only when user enters area (gateOpened = true)
+        while ((timeElapsedInMinutes < 10 && !gateOpened) || (!isGeofenceEnabled && !gateOpened)) {
             try {
                 val cts = CancellationTokenSource()
-                val location: Location? = try {
+                location = try {
                     fusedLocationClient.getCurrentLocation(
                         Priority.PRIORITY_HIGH_ACCURACY,
                         cts.token
@@ -246,22 +257,61 @@ class LocationMonitoringService : Service() {
             }
 
             // small delay to save battery
-            if (!gateOpened) delay(TimeUnit.SECONDS.toMillis(1))
-
+            if(!isGeofenceEnabled) {
+                if(location != null) {
+                    val currentLocation = LatLng(location.latitude, location.longitude)
+                    var distance = calculateDistanceToPolygon(currentLocation, polygonCoordinates!!)
+                    dynamicDelay = calculateDynamicInterval(distance)
+                    sendLogToMainActivity("Jesteś aktualnie $distance km od obszaru i sprawdzam co $dynamicDelay ms")
+                }
+                delay(TimeUnit.MILLISECONDS.toMillis(dynamicDelay))
+            }else{
+                delay(TimeUnit.SECONDS.toMillis(1))
+            }
             timeElapsedInMinutes = markStart.elapsedNow().inWholeMinutes
-            sendLogToMainActivity("Aktualnie sprawdzanie lokalizacji trwa $timeElapsedInMinutes minute/y")
+            if(!gateOpened) sendLogToMainActivity("Aktualnie sprawdzanie lokalizacji trwa $timeElapsedInMinutes minute/y")
         }
-        appPreferences.setIsLocationCheckWorkerRunning(false)
+        //appPreferences.setIsLocationCheckWorkerRunning(false)
         return
 
+    }
+
+    private fun calculateDistanceToPolygon(currentLocation: LatLng, polygon: List<LatLng>): Float {
+        var minDistance = Float.MAX_VALUE
+        for (point in polygon) {
+            val results = FloatArray(1)
+            android.location.Location.distanceBetween(
+                currentLocation.latitude, currentLocation.longitude,
+                point.latitude, point.longitude,
+                results
+            )
+            val distanceMeters = results[0]
+            if (distanceMeters < minDistance) {
+                minDistance = distanceMeters
+            }
+        }
+        Log.d(
+            "GeofenceReceiver",
+            "Odległość do najbliższego punktu wielokąta: ${minDistance / 1000f} km"
+        )
+        return minDistance / 1000f // Zwróć w kilometrach
+    }
+
+    private fun calculateDynamicInterval(distanceKm: Float): Long {
+        return when {
+            distanceKm < 0.5 -> TimeUnit.SECONDS.toMillis(1) // Zbyt blisko
+            distanceKm < 1 -> TimeUnit.SECONDS.toMillis(10) // Bardzo blisko, sprawdzaj często
+            distanceKm < 5 -> TimeUnit.MINUTES.toMillis(5) // Blisko
+            distanceKm < 20 -> TimeUnit.MINUTES.toMillis(15) // Średnia odległość
+            distanceKm < 50 -> TimeUnit.MINUTES.toMillis(30) // Dalej
+            else -> TimeUnit.HOURS.toMillis(1) // Bardzo daleko, sprawdzaj rzadziej
+        }
     }
 
     ///////////////////////////////////
     //          GEOFENCING           //
     ///////////////////////////////////
     private fun addGeofences() {
-        sendLogToMainActivity("Usuwanie starych geofences")
-        removeGeofences() //Firstly delete all geofences that are already added
         sendLogToMainActivity("Wykonuję dodawanie geofence")
         // Permission Check
         val hasFineLocationPermission = ContextCompat.checkSelfPermission(
@@ -274,7 +324,10 @@ class LocationMonitoringService : Service() {
         ) == PackageManager.PERMISSION_GRANTED
 
         if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
-            Log.e("LocationService", "Brak uprawnień do lokalizacji podczas dodawania Geofence. Nie dodaję.")
+            Log.e(
+                "LocationService",
+                "Brak uprawnień do lokalizacji podczas dodawania Geofence. Nie dodaję."
+            )
             updateNotification("Błąd: Brak uprawnień do lokalizacji przy tworzeniu geofence.")
             return
         }
@@ -283,7 +336,8 @@ class LocationMonitoringService : Service() {
         val gpa = com.google.android.gms.common.GoogleApiAvailability.getInstance()
         val playServicesStatus = gpa.isGooglePlayServicesAvailable(this)
         if (playServicesStatus != com.google.android.gms.common.ConnectionResult.SUCCESS) {
-            val msg = "Google Play Services niedostępne (kod $playServicesStatus). Nie można dodać geofence."
+            val msg =
+                "Google Play Services niedostępne (kod $playServicesStatus). Nie można dodać geofence."
             Log.e("LocationService", msg)
             updateNotification("Błąd: $msg")
             return
@@ -311,20 +365,25 @@ class LocationMonitoringService : Service() {
             .setRequestId(GEOFENCE_REQUEST_ID)
             .setCircularRegion(centroid.latitude, centroid.longitude, GEOFENCE_RADIUS_METERS)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
-            .setLoiteringDelay(62000)
+            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL or Geofence.GEOFENCE_TRANSITION_EXIT)
+            .setLoiteringDelay(1000) //62000
             .build()
 
         val geofencingRequest = GeofencingRequest.Builder()
             .addGeofence(geofence)
-            .setInitialTrigger(0) // Sprawdź przy dodawaniu, 0 oznacza że nie będzie triggera jeśli użytkownik jest w strefie w czasie tworzenia geofencingu
+            .setInitialTrigger(0)
             .build()
 
         val geofencePendingIntent: PendingIntent by lazy {
             val intent = Intent(this, GeofenceTransitionsReceiver::class.java).apply {
                 action = ACTION_GEOFENCE_TRANSITION
             }
-            PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
+            PendingIntent.getBroadcast(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
         }
 
         geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent)
@@ -340,12 +399,15 @@ class LocationMonitoringService : Service() {
                         com.google.android.gms.location.GeofenceStatusCodes.GEOFENCE_NOT_AVAILABLE -> {
                             updateNotification("Błąd geofencingu: usługa geofence niedostępna (kod 1000). Upewnij się, że precyzyjna lokalizacja jest włączona")
                         }
+
                         com.google.android.gms.location.GeofenceStatusCodes.GEOFENCE_TOO_MANY_GEOFENCES -> {
                             updateNotification("Błąd geofencingu: za dużo geofence'ów (kod 1001). Usuń niepotrzebne geofency lub zresetuj aplikację.")
                         }
+
                         com.google.android.gms.location.GeofenceStatusCodes.GEOFENCE_TOO_MANY_PENDING_INTENTS -> {
                             updateNotification("Błąd geofencingu: za dużo PendingIntent (kod 1002).")
                         }
+
                         else -> {
                             updateNotification("Błąd dodawania Geofence: ${e.statusCode} - ${e.message}")
                         }
@@ -355,6 +417,7 @@ class LocationMonitoringService : Service() {
                 }
             }
     }
+
 
     private fun removeGeofences() {
         sendLogToMainActivity("Usuwanie Geofence")
@@ -378,7 +441,8 @@ class LocationMonitoringService : Service() {
                 "Monitorowanie lokalizacji",
                 NotificationManager.IMPORTANCE_LOW
             )
-            serviceChannel.description = "Kanał dla powiadomień o monitorowaniu lokalizacji eWeLink."
+            serviceChannel.description =
+                "Kanał dla powiadomień o monitorowaniu lokalizacji eWeLink."
             serviceChannel.enableLights(false)
             serviceChannel.enableVibration(false)
             serviceChannel.setSound(null, null)

@@ -412,9 +412,9 @@ class MainActivity : AppCompatActivity() {
         // Starts the monitoring service
         val serviceIntent = Intent(this, LocationMonitoringService::class.java)
         // This intent servers as bridge to the service passing the selected device ID and polygon JSON
-        serviceIntent.putExtra("deviceId", selectedId)
-        serviceIntent.putExtra("polygonJson", polygonJson)
-        serviceIntent.putExtra("polygonCenter", polygonCenter)
+//        serviceIntent.putExtra("deviceId", selectedId)
+//        serviceIntent.putExtra("polygonJson", polygonJson)
+//        serviceIntent.putExtra("polygonCenter", polygonCenter)
 
         ContextCompat.startForegroundService(this, serviceIntent)
         addLogMessage("Uruchomionono LocationMonitorigService")

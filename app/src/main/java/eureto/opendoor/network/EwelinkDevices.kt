@@ -34,11 +34,9 @@ object EwelinkDevices{
 
     fun toggleDevice(deviceId: String, state: String) {
         ensureInitialized()
-        sendBroadcastLog("MainActivity toggleDevice called")
-        sendBroadcastLog("Przerwarzanie toggleDevice")
+        sendBroadcastLog("EwelinkDevice toggleDevice called")
 
-
-        //return; //TODO: Usuń ten return, jest tylko do testów, fukcja działa
+        return; //TODO: Usuń ten return, jest tylko do testów, fukcja działa
 
 
         val myScope = CoroutineScope(Dispatchers.IO+Job())

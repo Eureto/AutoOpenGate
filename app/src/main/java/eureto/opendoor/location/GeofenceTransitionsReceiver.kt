@@ -99,24 +99,13 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
 
         when (geofenceTransition) {
-            Geofence.GEOFENCE_TRANSITION_ENTER -> {
+            Geofence.GEOFENCE_TRANSITION_DWELL -> {
                 sendLogToMainActivity(context, "Zdarzenie GEOFENCE_TRANSITION_ENTER")
-
-                // keep the BroadcastReceiver alive while we do async work
-                val pendingResult = goAsync()
-                scope.launch {
-                    try {
-                        sendLogToMainActivity(context, "Sprawdzanie lokalizacji w tle...")
-                        sendLogToMainActivity(context, "Dane przekazane do sprawdzania \n deviceId: $deviceId \n polygonCoordinates: $polygonJson")
-                        val locationIntent = Intent(context, LocationMonitoringService::class.java).apply {
-                            action = ACTION_START_LOCATION
-                        }
-                        ContextCompat.startForegroundService(context, locationIntent )
-                    } finally {
-                        sendLogToMainActivity(context, "GeofenceReceiver: Koniec działania gefece receiver ")
-                        pendingResult.finish()
-                    }
+                sendLogToMainActivity(context, "Sprawdzanie lokalizacji w tle...")
+                val locationIntent = Intent(context, LocationMonitoringService::class.java).apply {
+                    action = ACTION_START_LOCATION
                 }
+                ContextCompat.startForegroundService(context, locationIntent)
             }
             // keep the BroadcastReceiver alive while we do async work
 //                val pendingResult = goAsync()

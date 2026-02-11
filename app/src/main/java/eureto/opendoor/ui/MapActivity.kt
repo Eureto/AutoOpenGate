@@ -157,12 +157,15 @@ class MapActivity : AppCompatActivity(){
 
             // create geofence circle
             if(isGeofenceEnabled) {
+                centerLat = polygonPoints.map { it.latitude }.average()
+                centerLng = polygonPoints.map { it.longitude }.average()
                 val centerGeoPoint = GeoPoint(centerLat, centerLng)
                 val circlePoints: MutableList<GeoPoint?> =
                     Polygon.pointsAsCircle(centerGeoPoint, geofenceRadius.toDouble())
                 var circle = Polygon(mMap)
                 circle.setPoints(circlePoints)
                 circle.getFillPaint().setColor(Color.argb(40, 255, 0, 0))
+                circle.setOnClickListener { circlePolygon, mapView, eventPos -> false }
                 drawCircle = circle
                 mMap.getOverlayManager().add(drawCircle)
             }
@@ -212,6 +215,10 @@ class MapActivity : AppCompatActivity(){
             drawnPolygon = null
         }
         appPreferences.savePolygonCoordinates("")
+        if(drawCircle != null) {
+            mMap.overlays.remove(drawCircle)
+            drawCircle = null
+        }
         mMap.invalidate()
     }
 
