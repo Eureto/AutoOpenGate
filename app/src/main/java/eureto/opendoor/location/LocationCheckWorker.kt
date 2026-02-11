@@ -38,13 +38,15 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
     private val notificationChannelId = LocationMonitoringService.NOTIFICATION_CHANNEL_ID // same as in LocationMonitoringService
     private val notificationId = 1001
 
-
+    // TODO: move this funciton to locationMonitoringService as it should be killable by user
+    // but doWork is managed by system.
     override suspend fun doWork(): Result{
         val appPreferences = eureto.opendoor.network.EwelinkApiClient.getAppPreferences()
 
         if(appPreferences.getIsLocationCheckWorkerRunning()) return Result.failure()
         appPreferences.setIsLocationCheckWorkerRunning(true)
 
+        val isGeofenceEnabled = appPreferences.getIsGeofenceEnabled()
         val context = applicationContext
         val deviceId = inputData.getString("deviceId")
         val polygonCoordinatesJSON = inputData.getString("polygonCoordinates")
@@ -82,7 +84,7 @@ class LocationCheckWorker(appContext: Context, workerParams: WorkerParameters): 
         var timeElapsedInMinutes: Long = 0
         var gateOpened: Boolean = false
 
-        while (timeElapsedInMinutes < 10 && !gateOpened) {
+        while (timeElapsedInMinutes < 10 && !gateOpened && isGeofenceEnabled) {
             try {
                 val cts = CancellationTokenSource()
                 val location: Location? = try {

@@ -49,9 +49,17 @@ class MapActivity : AppCompatActivity(){
         binding = ActivityMapBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // przypisanie zapisanych wartości
         appPreferences = EwelinkApiClient.getAppPreferences()
         geofenceRadius = appPreferences.getGeofenceRadius()
+        isGeofenceEnabled = appPreferences.getIsGeofenceEnabled()
 
+        binding.inputGeofenceRadius.setHint(geofenceRadius.toString() + " metrów")
+        if(isGeofenceEnabled) {
+            binding.btnTurnOnOffGeofence.text = "Wyłącz geofence"
+        }else{
+            binding.btnTurnOnOffGeofence.text = "Włącz geofence"
+        }
 
         mMap = binding.osmmap
         mMap.setTileSource(TileSourceFactory.MAPNIK)

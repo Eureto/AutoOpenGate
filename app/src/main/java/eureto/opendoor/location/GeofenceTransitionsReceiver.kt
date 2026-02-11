@@ -1,4 +1,5 @@
 package eureto.opendoor.location
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -18,10 +19,14 @@ import com.google.android.gms.location.GeofenceStatusCodes
 import com.google.android.gms.location.GeofencingEvent
 import com.google.gson.Gson
 import eureto.opendoor.R
+import eureto.opendoor.location.LocationMonitoringService.Companion.ACTION_OPEN_GATE
 import eureto.opendoor.network.EwelinkApiClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlin.jvm.java
+import android.R.attr.action
+import eureto.opendoor.location.LocationMonitoringService.Companion.ACTION_START_LOCATION
 
 /**
  * BroadcastReceiver to handle geofence transition events.
@@ -96,23 +101,40 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         when (geofenceTransition) {
             Geofence.GEOFENCE_TRANSITION_ENTER -> {
                 sendLogToMainActivity(context, "Zdarzenie GEOFENCE_TRANSITION_ENTER")
+
                 // keep the BroadcastReceiver alive while we do async work
                 val pendingResult = goAsync()
                 scope.launch {
                     try {
                         sendLogToMainActivity(context, "Sprawdzanie lokalizacji w tle...")
                         sendLogToMainActivity(context, "Dane przekazane do sprawdzania \n deviceId: $deviceId \n polygonCoordinates: $polygonJson")
-                        val workRequest = OneTimeWorkRequestBuilder<LocationCheckWorker>()
-                            .setInputData(workDataOf("deviceId" to deviceId, "polygonCoordinates" to polygonJson))
-                            .build()
-                        WorkManager.getInstance(context).enqueue(workRequest)
-
+                        val locationIntent = Intent(context, LocationMonitoringService::class.java).apply {
+                            action = ACTION_START_LOCATION
+                        }
+                        ContextCompat.startForegroundService(context, locationIntent )
                     } finally {
                         sendLogToMainActivity(context, "GeofenceReceiver: Koniec działania gefece receiver ")
                         pendingResult.finish()
                     }
                 }
             }
+            // keep the BroadcastReceiver alive while we do async work
+//                val pendingResult = goAsync()
+//                scope.launch {
+//                    try {
+//                        sendLogToMainActivity(context, "Sprawdzanie lokalizacji w tle...")
+//                        sendLogToMainActivity(context, "Dane przekazane do sprawdzania \n deviceId: $deviceId \n polygonCoordinates: $polygonJson")
+//                        val workRequest = OneTimeWorkRequestBuilder<LocationCheckWorker>()
+//                            .setInputData(workDataOf("deviceId" to deviceId, "polygonCoordinates" to polygonJson))
+//                            .build()
+//                        WorkManager.getInstance(context).enqueue(workRequest)
+//
+//                    } finally {
+//                        sendLogToMainActivity(context, "GeofenceReceiver: Koniec działania gefece receiver ")
+//                        pendingResult.finish()
+//                    }
+//                }
+//            }
 
             //TODO: Dodaj obsługe zdarzenia EXIT w geofence receiver
             Geofence.GEOFENCE_TRANSITION_EXIT -> {

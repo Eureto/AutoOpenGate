@@ -7,25 +7,33 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.work.ListenableWorker
+import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.google.maps.android.PolyUtil
 import eureto.opendoor.R
 import eureto.opendoor.data.AppPreferences
 import eureto.opendoor.network.EwelinkApiClient
 import eureto.opendoor.network.EwelinkDevices
 import kotlinx.coroutines.*
+import kotlinx.coroutines.tasks.await
 import java.util.concurrent.TimeUnit
+import kotlin.time.TimeSource
 
 
 /**
@@ -37,9 +45,10 @@ class LocationMonitoringService : Service() {
 
     private lateinit var geofencingClient: GeofencingClient
     private lateinit var appPreferences: AppPreferences
-        private lateinit var notificationManager: NotificationManager
+    private lateinit var notificationManager: NotificationManager
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val gson = Gson()
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     private var deviceIdToControl: String? = null
     private var polygonJson: String? = null
@@ -53,10 +62,11 @@ class LocationMonitoringService : Service() {
         const val NOTIFICATION_CHANNEL_ID = "eureto_opendoor_location_channel"
         const val NOTIFICATION_ID = 123
         const val GEOFENCE_REQUEST_ID = "home_area_geofence"
-        const val GEOFENCE_RADIUS_METERS = 1000f // TODO: Maybe add option to set radius in app
+        const val GEOFENCE_RADIUS_METERS = 1000f
         const val ACTION_GEOFENCE_TRANSITION = "eureto.opendoor.ACTION_GEOFENCE_TRANSITION"
         const val ACTION_OPEN_GATE = "eureto.opendoor.ACTION_OPEN_GATE"
         const val ACTION_STOP_SERVICE = "eureto.opendoor.ACTION_STOP_SERVICE"
+        const val ACTION_START_LOCATION = "eureto.opendoor.ACTION_START_LOCATION"
     }
 
 
@@ -81,6 +91,26 @@ class LocationMonitoringService : Service() {
         polygonJson = intent?.getStringExtra("polygonJson")
         polygonCenter = intent?.getStringExtra("polygonCenter")
 
+        when(intent?.action){
+            ACTION_OPEN_GATE -> {
+                sendLogToMainActivity("Otwarto brame ręcznie z poziomu powiadomienia")
+                val id = deviceIdToControl ?: appPreferences.getSelectedDeviceId()
+                if (!id.isNullOrEmpty()) {
+                    EwelinkDevices.toggleDevice(id, "on")
+                }
+                return START_STICKY;
+            }
+            ACTION_STOP_SERVICE -> {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            ACTION_START_LOCATION -> {
+                serviceScope.launch {
+                    checkLocation()
+                }
+            }
+        }
+
         // Check if deviceId and polygon are provided
         if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty() || polygonCenter == null) {
             Log.e("LocationService", "Brak deviceId lub polygonJson lub centerPolygon. Sprawdzam czy nie ma zapisanych ustawień lokalizacji.")
@@ -95,17 +125,6 @@ class LocationMonitoringService : Service() {
             }
         }
 
-        when(intent?.action){
-            ACTION_OPEN_GATE -> {
-                sendLogToMainActivity("Otwarto brame ręcznie z poziomu powiadomienia")
-                EwelinkDevices.toggleDevice(deviceIdToControl!!, "on")
-                return START_STICKY;
-            }
-            ACTION_STOP_SERVICE -> {
-                stopSelf()
-                return START_NOT_STICKY
-            }
-        }
 
         // Parse polygon coordinates from JSON
         try {
@@ -123,9 +142,13 @@ class LocationMonitoringService : Service() {
         }
 
         startForeground(NOTIFICATION_ID, createNotification("Monitorowanie lokalizacji aktywne.").build())
+        val isGeofenceEnabled = appPreferences.getIsGeofenceEnabled()
 
-        addGeofences()
-
+        if(isGeofenceEnabled) {
+            addGeofences()
+        }else{
+            //addManualChecking()
+        }
         return START_STICKY
     }
 
@@ -141,72 +164,105 @@ class LocationMonitoringService : Service() {
         stopForeground(true)
     }
 
-    // Create a notification channel for foreground service
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val serviceChannel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Monitorowanie lokalizacji",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            serviceChannel.description = "Kanał dla powiadomień o monitorowaniu lokalizacji eWeLink."
-            serviceChannel.enableLights(false)
-            serviceChannel.enableVibration(false)
-            serviceChannel.setSound(null, null)
-            serviceChannel.lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
+    ///////////////////////////////////
+    //      MANUAL CHECKING          //
+    ///////////////////////////////////
 
-            notificationManager.createNotificationChannel(serviceChannel)
+    // TODO: make this function work with and without geofence
+    public suspend fun checkLocation() {
+        if(appPreferences.getIsLocationCheckWorkerRunning()) return
+        appPreferences.setIsLocationCheckWorkerRunning(true)
+
+        val isGeofenceEnabled = appPreferences.getIsGeofenceEnabled()
+        val context = applicationContext
+        val deviceId = deviceIdToControl
+        val polygonCoordinatesJSON = polygonCoordinates
+
+        if(deviceId == null || polygonCoordinates == null){
+            updateNotification("Błąd: Brak wymaganych danych do sprawdzania lokalizacji.")
+            sendLogToMainActivity("GeofenceReceiver: Brak wymaganych danych do sprawdzania lokalizacji")
+            appPreferences.setIsLocationCheckWorkerRunning(false)
+            return
         }
+
+        // Checking permissions
+        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarseLocationPermission = ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
+            updateNotification("Błąd: Brak uprawnień do lokalizacji do sprawdzania w tle.")
+            sendLogToMainActivity("GeofenceReceiver: Brak uprawnień do lokalizacji do sprawdzania w tle. kod:asdf1")
+            appPreferences.setIsLocationCheckWorkerRunning(false)
+            return
+        }
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+
+        val timeSource = TimeSource.Monotonic
+        val markStart = timeSource.markNow()
+        var timeElapsedInMinutes: Long = 0
+        var gateOpened: Boolean = false
+
+        while (timeElapsedInMinutes < 10 && !gateOpened && isGeofenceEnabled) {
+            try {
+                val cts = CancellationTokenSource()
+                val location: Location? = try {
+                    fusedLocationClient.getCurrentLocation(
+                        Priority.PRIORITY_HIGH_ACCURACY,
+                        cts.token
+                    ).await()
+                } catch (e: Exception) {
+                    sendLogToMainActivity("GeofenceReceiver - Błąd pobierania lokalizacji: ${e.message}")
+                    null
+                }
+
+                // Getting current location of user
+                if (location != null) {
+                    val currentLocation = LatLng(location.latitude, location.longitude)
+                    sendLogToMainActivity("Aktualna lokalizacja: $currentLocation")
+
+                    val isNowInsidePolygon =
+                        PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
+
+                    if (isNowInsidePolygon) {
+                        sendLogToMainActivity(
+                            "GeofenceReceiver: Użytkownik wrócił do obszaru. Włączam bramę."
+                        )
+                        updateNotification("Wróciłeś do domu! Uruchamiam bramę...")
+                        EwelinkDevices.toggleDevice(deviceId, "on")
+                        gateOpened = true
+                    }
+                }
+
+            } catch (e: Exception) {
+                updateNotification("Błąd podczas sprawdzania lokalizacji")
+                sendLogToMainActivity("GeofenceReceiver: Błąd podczas sprawdzania lokalizacji: ${e.message}")
+            }
+
+            // small delay to save battery
+            if (!gateOpened) delay(TimeUnit.SECONDS.toMillis(1))
+
+            timeElapsedInMinutes = markStart.elapsedNow().inWholeMinutes
+            sendLogToMainActivity("Aktualnie sprawdzanie lokalizacji trwa $timeElapsedInMinutes minute/y")
+        }
+        appPreferences.setIsLocationCheckWorkerRunning(false)
+        return
+
     }
 
-    // Creates notification with given message and intent to open MainActivity
-    private fun createNotification(message: String): NotificationCompat.Builder {
-        val notificationIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-        val pendingIntent: PendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            notificationIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        // Intent for the "Open Gate" button
-        val openGateIntent = Intent(this, LocationMonitoringService::class.java).apply {
-            action = ACTION_OPEN_GATE
-        }
-        val openGatePendingIntent: PendingIntent = PendingIntent.getService(
-            this,
-            1, // Unique request code
-            openGateIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // Intent for the "Stop Service" button
-        val stopServiceIntent = Intent(this, LocationMonitoringService::class.java).apply {
-            action = ACTION_STOP_SERVICE
-        }
-        val stopServicePendingIntent: PendingIntent = PendingIntent.getService(
-            this,
-            2, // Unique request code
-            stopServiceIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("eWeLink Automatyka")
-            .setContentText(message)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true) // Make notification non-swipable - THIS DOES NOT WORK on android 15, on android 11 works well
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .addAction(R.drawable.ic_launcher_foreground, "Otwórz bramę", openGatePendingIntent)
-            .addAction(R.drawable.ic_launcher_foreground, "Zatrzymaj", stopServicePendingIntent)
-    }
-
-
+    ///////////////////////////////////
+    //          GEOFENCING           //
+    ///////////////////////////////////
     private fun addGeofences() {
-        sendLogToMainActivity("Wykonuję funkcję addGeofences()")
+        sendLogToMainActivity("Usuwanie starych geofences")
+        removeGeofences() //Firstly delete all geofences that are already added
+        sendLogToMainActivity("Wykonuję dodawanie geofence")
         // Permission Check
         val hasFineLocationPermission = ContextCompat.checkSelfPermission(
             this,
@@ -304,7 +360,6 @@ class LocationMonitoringService : Service() {
         sendLogToMainActivity("Usuwanie Geofence")
         geofencingClient.removeGeofences(listOf(GEOFENCE_REQUEST_ID))
             .addOnSuccessListener {
-
                 sendLogToMainActivity("LocationService: Geofence usunięty pomyślnie.")
             }
             .addOnFailureListener { e ->
@@ -312,11 +367,77 @@ class LocationMonitoringService : Service() {
             }
     }
 
+
+    ///////////////////////////////////
+    //          NOTIFICATIONS        //
+    ///////////////////////////////////
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val serviceChannel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Monitorowanie lokalizacji",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            serviceChannel.description = "Kanał dla powiadomień o monitorowaniu lokalizacji eWeLink."
+            serviceChannel.enableLights(false)
+            serviceChannel.enableVibration(false)
+            serviceChannel.setSound(null, null)
+            serviceChannel.lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
+
+            notificationManager.createNotificationChannel(serviceChannel)
+        }
+    }
+
+    private fun createNotification(message: String): NotificationCompat.Builder {
+        val notificationIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent: PendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            notificationIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Intent for the "Open Gate" button
+        val openGateIntent = Intent(this, LocationMonitoringService::class.java).apply {
+            action = ACTION_OPEN_GATE
+        }
+        val openGatePendingIntent: PendingIntent = PendingIntent.getService(
+            this,
+            1, // Unique request code
+            openGateIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Intent for the "Stop Service" button
+        val stopServiceIntent = Intent(this, LocationMonitoringService::class.java).apply {
+            action = ACTION_STOP_SERVICE
+        }
+        val stopServicePendingIntent: PendingIntent = PendingIntent.getService(
+            this,
+            2, // Unique request code
+            stopServiceIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setContentTitle("eWeLink Automatyka")
+            .setContentText(message)
+            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true) // Make notification non-swipable - does not work on android 15, on android 11 works well
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(R.drawable.ic_launcher_foreground, "Otwórz bramę", openGatePendingIntent)
+            .addAction(R.drawable.ic_launcher_foreground, "Zatrzymaj", stopServicePendingIntent)
+    }
+
     private fun updateNotification(message: String) {
         sendLogToMainActivity("updateNotification: $message")
         val notification = createNotification(message).build()
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
+
 
     private fun sendLogToMainActivity(message: String) {
         val intent = Intent(ACTION_LOG_UPDATE)
