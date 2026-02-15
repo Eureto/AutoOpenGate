@@ -193,7 +193,7 @@ class MainActivity : AppCompatActivity() {
         updateMonitoringStatusUI()
     }
 
-    fun addLogMessage(message: String) {
+    private fun addLogMessage(message: String) {
         val timestamp = SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(Date())
         val fullMessage = "[$timestamp] $message\n"
 
@@ -208,7 +208,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun readLogMessages(){
+    private fun readLogMessages(){
         var log: String = try {
             this.openFileInput(logFileName).bufferedReader().useLines { lines ->
                 lines.joinToString("\n")

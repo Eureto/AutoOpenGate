@@ -99,98 +99,20 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
 
         when (geofenceTransition) {
-            Geofence.GEOFENCE_TRANSITION_DWELL -> {
-                sendLogToMainActivity(context, "Zdarzenie GEOFENCE_TRANSITION_ENTER")
+            Geofence.GEOFENCE_TRANSITION_ENTER -> {
+                sendLogToMainActivity(context, "Zdarzenie GEOFENCE_TRANSITION_DWELL")
                 sendLogToMainActivity(context, "Sprawdzanie lokalizacji w tle...")
                 val locationIntent = Intent(context, LocationMonitoringService::class.java).apply {
                     action = ACTION_START_LOCATION
                 }
                 ContextCompat.startForegroundService(context, locationIntent)
             }
-            // keep the BroadcastReceiver alive while we do async work
-//                val pendingResult = goAsync()
-//                scope.launch {
-//                    try {
-//                        sendLogToMainActivity(context, "Sprawdzanie lokalizacji w tle...")
-//                        sendLogToMainActivity(context, "Dane przekazane do sprawdzania \n deviceId: $deviceId \n polygonCoordinates: $polygonJson")
-//                        val workRequest = OneTimeWorkRequestBuilder<LocationCheckWorker>()
-//                            .setInputData(workDataOf("deviceId" to deviceId, "polygonCoordinates" to polygonJson))
-//                            .build()
-//                        WorkManager.getInstance(context).enqueue(workRequest)
-//
-//                    } finally {
-//                        sendLogToMainActivity(context, "GeofenceReceiver: Koniec działania gefece receiver ")
-//                        pendingResult.finish()
-//                    }
-//                }
-//            }
 
             //TODO: Dodaj obsługe zdarzenia EXIT w geofence receiver
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 Log.d("GeofenceReceiver", "Zdarzenie GEOFENCE_TRANSITION_EXIT")
                 sendLogToMainActivity(context, "Zdarzenie GEOFENCE_TRANSITION_EXIT ale robie return")
-                return // usuń
-
-//                if (false) { // Upewnij się, że faktycznie jesteś poza wielokątem
-//                    Log.d("GeofenceReceiver", "Lokalizacja poza wielokątem. Opuściłeś teren.")
-//                    sendNotification(context, "Opuściłeś teren. Brama zostanie wyłączona.")
-//                    scope.launch {
-//
-//                        try {
-//                            val apiService = EwelinkApiClient.createApiService()
-//                            val requestBody = DeviceControlRequest(
-//                                type = 1,
-//                                id = deviceId,
-//                                params = DeviceControlParams(switch = "on") // lub "off"
-//                            )
-//                            val response = apiService.setDeviceStatus(requestBody)
-//
-//                            if (response.error == 0 && response.msg == "ok") {
-//                                Log.i(
-//                                    TAG,
-//                                    "Pomyślnie zmieniono status urządzenia $deviceId na OFF przez REST API."
-//                                )
-//                                delay(TimeUnit.SECONDS.toMillis(5))
-//                                sendNotification(context, "Brama została wyłączona.")
-//
-//                                // Logika "10 minut nieaktywna, potem sprawdzanie"
-//                                // Uruchomienie WorkManagera po 10 minutach
-//                                Log.d(
-//                                    "GeofenceReceiver",
-//                                    "Aplikacja nieaktywna na 10 minut. Zaplanowano sprawdzenie."
-//                                )
-//                                delay(TimeUnit.MINUTES.toMillis(10)) // 10 minut nieaktywności
-//                                // Po 10 minutach, wykonaj sprawdzenie lokalizacji
-//
-//                            } else {
-//                                Log.e(
-//                                    TAG,
-//                                    "Błąd zmiany statusu urządzenia $deviceId na OFF: ${response.msg ?: "Nieznany błąd"} (Kod: ${response.error})"
-//                                )
-//                                sendNotification(
-//                                    context,
-//                                    "Błąd wyłączania bramy: ${response.msg ?: "Nieznany błąd"}"
-//                                )
-//                            }
-//                        } catch (e: Exception) {
-//                            Log.e(
-//                                TAG,
-//                                "Błąd sieci podczas zmiany statusu urządzenia $deviceId na OFF: ${e.message}",
-//                                e
-//                            )
-//                            sendNotification(
-//                                context,
-//                                "Błąd sieci podczas wyłączania bramy: ${e.message}"
-//                            )
-//                        }
-//
-//                    }
-//                } else {
-//                    Log.d(
-//                        "GeofenceReceiver",
-//                        "Zdarzenie EXIT, ale nadal wewnątrz wielokąta. Ignoruję."
-//                    )
-//                }
+                return
             }
 
             else -> {
@@ -232,38 +154,6 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
             }
         }
     }
-
-    // Maybe it will be used in future
-//    private fun calculateDistanceToPolygon(currentLocation: LatLng, polygon: List<LatLng>): Float {
-//        var minDistance = Float.MAX_VALUE
-//        for (point in polygon) {
-//            val results = FloatArray(1)
-//            android.location.Location.distanceBetween(
-//                currentLocation.latitude, currentLocation.longitude,
-//                point.latitude, point.longitude,
-//                results
-//            )
-//            val distanceMeters = results[0]
-//            if (distanceMeters < minDistance) {
-//                minDistance = distanceMeters
-//            }
-//        }
-//        Log.d(
-//            "GeofenceReceiver",
-//            "Odległość do najbliższego punktu wielokąta: ${minDistance / 1000f} km"
-//        )
-//        return minDistance / 1000f // Zwróć w kilometrach
-//    }
-
-//    private fun calculateDynamicInterval(distanceKm: Float): Long {
-//        return when {
-//            distanceKm < 1 -> TimeUnit.MINUTES.toMillis(1) // Bardzo blisko, sprawdzaj często
-//            distanceKm < 5 -> TimeUnit.MINUTES.toMillis(5) // Blisko
-//            distanceKm < 20 -> TimeUnit.MINUTES.toMillis(15) // Średnia odległość
-//            distanceKm < 50 -> TimeUnit.MINUTES.toMillis(30) // Dalej
-//            else -> TimeUnit.HOURS.toMillis(1) // Bardzo daleko, sprawdzaj rzadziej
-//        }
-//    }
 
     private fun sendLogToMainActivity(context: Context, message: String) {
         val intent = Intent(ACTION_LOG_UPDATE)
