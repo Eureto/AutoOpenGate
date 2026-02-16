@@ -269,9 +269,9 @@ class LocationMonitoringService : Service() {
                         currentLocation.longitude,
                         result)
                     val distanceFromCenterToUser = result[0]
-                    if( distanceFromCenterToUser > geofenceRadius!!){
+                    if( distanceFromCenterToUser > geofenceRadius!!*1.5){
                         sendLogToMainActivity("LocationMonitoring: Użytkownik nie jest w obszarze okręgu, funkcja kończy działanie")
-                        break
+                        // brake
                     }
 
                     // Check if user enterd are where gate should be opened
