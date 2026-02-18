@@ -11,6 +11,7 @@ If the user enters the selected area, a toggle signal is sent to the device (e.g
 </div>
 
 ToDo:
+- move logging function to location service 
 - change local.defaults.properties to secrets.properties.default
 - check if ewelink secret expired and refresh it
 - do not fetch devices every time app starts
