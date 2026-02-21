@@ -11,6 +11,8 @@ If the user enters the selected area, a toggle signal is sent to the device (e.g
 </div>
 
 ToDo:
+- add option to turn gate when user is in area and connects to bluetooth (car audio)
+- before turning on device check if state is on
 - move logging function to location service 
 - change local.defaults.properties to secrets.properties.default
 - check if ewelink secret expired and refresh it

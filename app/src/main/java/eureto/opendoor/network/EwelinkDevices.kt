@@ -36,9 +36,6 @@ object EwelinkDevices{
         ensureInitialized()
         sendBroadcastLog("EwelinkDevice toggleDevice called")
 
-        return; //TODO: Usuń ten return, jest tylko do testów, fukcja działa
-
-
         val myScope = CoroutineScope(Dispatchers.IO+Job())
  
     myScope.launch {
