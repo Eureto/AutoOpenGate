@@ -494,7 +494,12 @@ class LocationMonitoringService : Service() {
                         ).await()
                         if(location != null) {
                             sendLogToMainActivity("LocationService: Zaktualizowano lokalizacje w tle")
-                            Log.d("LocationService", "Zaktualizowano lokalizacje w tle")
+
+                                val currentLocation = LatLng(location.latitude, location.longitude)
+                                var distance = calculateDistanceToPolygon(currentLocation, polygonCoordinates!!)
+                                val dynamicDelay = calculateDynamicInterval(distance)
+                                sendLogToMainActivity("Jesteś $distance km od obszaru | delay test: $dynamicDelay ms")
+
                         }
                     } catch (e: Exception) {
                         sendLogToMainActivity("LocationService: Błąd aktualizacji lokalizacji w tle: ${e.message}")

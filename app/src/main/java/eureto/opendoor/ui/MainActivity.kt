@@ -118,9 +118,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        logReceiver?.let {
-            LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
-        }
+//        logReceiver?.let {
+//            LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
+//        }
     }
 
     private fun setupUI() {
@@ -427,6 +427,9 @@ class MainActivity : AppCompatActivity() {
         stopService(serviceIntent)
         Toast.makeText(this, "Zatrzymano monitorowanie lokalizacji.", Toast.LENGTH_SHORT).show()
         updateMonitoringStatusUI()
+        logReceiver?.let {
+            LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
+        }
     }
 
 
