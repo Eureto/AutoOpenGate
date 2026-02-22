@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlin.jvm.java
 import android.R.attr.action
 import eureto.opendoor.location.LocationMonitoringService.Companion.ACTION_START_LOCATION
+import eureto.opendoor.logging.MyLog
 
 /**
  * BroadcastReceiver to handle geofence transition events.
@@ -39,42 +40,25 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
     private val notificationId = 1001
     private val notificationChannelId = LocationMonitoringService.NOTIFICATION_CHANNEL_ID
-    private val gson = Gson()
-    private val scope = CoroutineScope(Dispatchers.Main)
-    private val TAG = "GeofenceTransitionsReceiver"
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
-    /**
-     * Constants for local broadcasts to MainActivity. It is used to send log messages to MainActivity and display them in the UI.
-     */
-    companion object {
-        const val ACTION_LOG_UPDATE =
-            "eureto.opendoor.action.LOG_UPDATE" // Same action as in LocationMonitoringService
-        const val EXTRA_LOG_MESSAGE =
-            "eureto.opendoor.extra.LOG_MESSAGE" // Same key for messages
-    }
 
-    //
     override fun onReceive(context: Context?, intent: Intent?) {
-        sendLogToMainActivity( context ?: return, "Otrzymano złgłoszenie Geofence")
+        MyLog.addLogMessageIntoFile(context ?: return, "Otrzymano złgłoszenie Geofence")
 
         if (context == null || intent?.action != LocationMonitoringService.ACTION_GEOFENCE_TRANSITION) {
-            Log.e("GeofenceReceiver", "Nieznana akcja lub brak kontekstu: ${intent?.action}")
-            sendLogToMainActivity(context, "Nieznana akcja lub brak kontekstu: ${intent?.action}")
+            MyLog.addLogMessageIntoFile(context, "Nieznana akcja lub brak kontekstu: ${intent?.action}")
             return
         }
 
         val geofencingEvent = GeofencingEvent.fromIntent(intent)
         if (geofencingEvent == null) {
-            Log.e("GeofenceReceiver", "Błąd: geofencingEvent jest nullem.")
-            sendLogToMainActivity(context, "Błąd: geofencingEvent jest nullem.")
+            MyLog.addLogMessageIntoFile(context, "Błąd: geofencingEvent jest nullem.")
             return
         }
 
         if (geofencingEvent.hasError()) {
             val errorMessage = GeofenceStatusCodes.getStatusCodeString(geofencingEvent.errorCode)
-            Log.e("GeofenceReceiver", "Błąd Geofence: $errorMessage")
             sendNotification(context, "Błąd monitorowania lokalizacji: $errorMessage")
-            sendLogToMainActivity(context, "Błąd Geofence: $errorMessage")
+            MyLog.addLogMessageIntoFile(context, "Błąd Geofence: $errorMessage")
             return
         }
 
@@ -86,10 +70,6 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         val polygonJson = appPreferences.getPolygonCoordinates()
 
         if (deviceId.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
-            Log.e(
-                "GeofenceReceiver",
-                "Brak wybranego urządzenia lub zdefiniowanego obszaru. Zatrzymuję operacje."
-            )
             sendNotification(
                 context,
                 "Automatyka wyłączona: brak konfiguracji urządzenia lub obszaru."
@@ -100,8 +80,8 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
         when (geofenceTransition) {
             Geofence.GEOFENCE_TRANSITION_ENTER -> {
-                sendLogToMainActivity(context, "Zdarzenie GEOFENCE_TRANSITION_DWELL")
-                sendLogToMainActivity(context, "Sprawdzanie lokalizacji w tle...")
+                MyLog.addLogMessageIntoFile(context, "Zdarzenie GEOFENCE_TRANSITION_DWELL")
+                MyLog.addLogMessageIntoFile(context, "Sprawdzanie lokalizacji w tle...")
                 val locationIntent = Intent(context, LocationMonitoringService::class.java).apply {
                     action = ACTION_START_LOCATION
                 }
@@ -111,7 +91,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
             //TODO: Dodaj obsługe zdarzenia EXIT w geofence receiver
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 Log.d("GeofenceReceiver", "Zdarzenie GEOFENCE_TRANSITION_EXIT")
-                sendLogToMainActivity(context, "Zdarzenie GEOFENCE_TRANSITION_EXIT ale robie return")
+                MyLog.addLogMessageIntoFile(context, "Zdarzenie GEOFENCE_TRANSITION_EXIT ale robie return")
                 return
             }
 
@@ -155,10 +135,5 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun sendLogToMainActivity(context: Context, message: String) {
-        val intent = Intent(ACTION_LOG_UPDATE)
-        intent.putExtra(EXTRA_LOG_MESSAGE, message)
-        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
-    }
 
 }
