@@ -31,6 +31,7 @@ import eureto.opendoor.network.EwelinkApiClient
 import eureto.opendoor.network.model.Device
 import kotlinx.coroutines.launch
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import eureto.opendoor.logging.MyLog
 import eureto.opendoor.network.EwelinkDevices
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -43,7 +44,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var ewelinkApiClient: EwelinkApiClient
     private var deviceList: List<Device> = emptyList()
     private var selectedDeviceId: String? = null
-    private var logReceiver: BroadcastReceiver? = null
 
 
     // Launcher do prośby o uprawnienia do lokalizacji
@@ -104,8 +104,7 @@ class MainActivity : AppCompatActivity() {
         }
 
 
-        addLogMessage("MainActivity: onCreate called")
-        setupLogReceiver()
+        MyLog.addLogMessageIntoFile(this, "MainActivity: onCreate called")
         setupUI()
         fetchDevices()
     }
@@ -118,9 +117,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-//        logReceiver?.let {
-//            LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
-//        }
     }
 
     private fun setupUI() {
@@ -193,20 +189,6 @@ class MainActivity : AppCompatActivity() {
         updateMonitoringStatusUI()
     }
 
-    private fun addLogMessage(message: String) {
-        val timestamp = SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(Date())
-        val fullMessage = "[$timestamp] $message\n"
-
-        Log.d("LogMessage", message)
-
-        try {
-            this.openFileOutput(logFileName, Context.MODE_APPEND).use { output ->
-                output.write(fullMessage.toByteArray())
-            }
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Błąd zapisu logów: ${e.message}")
-        }
-    }
 
     private fun readLogMessages(){
         var log: String = try {
@@ -275,7 +257,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 16f
             setTypeface(null, android.graphics.Typeface.BOLD)
             setOnClickListener {
-                clearLogFile()
+                MyLog.clearLogFile(this@MainActivity)
                 bottomSheetDialog.dismiss()
             }
         }
@@ -291,32 +273,9 @@ class MainActivity : AppCompatActivity() {
 
         bottomSheetDialog.show()
     }
-    private fun clearLogFile(){
-        try {
-            this.openFileOutput(logFileName, Context.MODE_PRIVATE).use { output ->
-                output.write("".toByteArray())}
-
-            Toast.makeText(this, "Wyczyszczono historię logów", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Błąd podczas czyszczenia logów: ${e.message}")
-        }
-    }
-    private fun setupLogReceiver() {
-        logReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                intent?.getStringExtra(LocationMonitoringService.EXTRA_LOG_MESSAGE)?.let { message ->
-                    addLogMessage("Service: $message") // Dodaj prefix, aby odróżnić logi z serwisu
-                }
-            }
-        }
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-            logReceiver!!,
-            IntentFilter(LocationMonitoringService.ACTION_LOG_UPDATE)
-        )
-    }
 
     private fun fetchDevices() {
-        addLogMessage("MainActivity fetchDevices called")
+        MyLog.addLogMessageIntoFile(this, "MainActivity fetchDevices called")
         lifecycleScope.launch {
             try {
                 val apiService = ewelinkApiClient.createApiService()
@@ -341,7 +300,7 @@ class MainActivity : AppCompatActivity() {
                         binding.spinnerDevices.setSelection(savedDevicePosition + 1) // +1 bo "Wybierz urządzenie"
                     }
                     Log.d("MainActivity", "Pobrano urządzenia: ${deviceList.size}")
-                    addLogMessage("Pobrano urządzenia: ${deviceList.size}")
+                    MyLog.addLogMessageIntoFile(this@MainActivity, "Pobrano urządzenia: ${deviceList.size}")
 
                     selectedDeviceId?.let { id ->
                         val currentDevice = deviceList.find { it.deviceid == id }
@@ -373,8 +332,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestLocationPermissions() {
-        addLogMessage("zapytanie o uprawnienia do lokalizacji")
-        Log.d("MainActivity", "Zapytanie o uprawnienia do lokalizacji")
+        MyLog.addLogMessageIntoFile(this, "zapytanie o uprawnienia do lokalizacji")
         val permissionsToRequest = mutableListOf(
             android.Manifest.permission.ACCESS_FINE_LOCATION
         )
@@ -417,7 +375,7 @@ class MainActivity : AppCompatActivity() {
 //        serviceIntent.putExtra("polygonCenter", polygonCenter)
 
         ContextCompat.startForegroundService(this, serviceIntent)
-        addLogMessage("Uruchomionono LocationMonitorigService")
+        MyLog.addLogMessageIntoFile(this, "Uruchomionono monitorowanie lokalizacji")
         Toast.makeText(this, "Rozpoczęto monitorowanie lokalizacji.", Toast.LENGTH_SHORT).show()
         updateMonitoringStatusUI()
     }
@@ -427,9 +385,6 @@ class MainActivity : AppCompatActivity() {
         stopService(serviceIntent)
         Toast.makeText(this, "Zatrzymano monitorowanie lokalizacji.", Toast.LENGTH_SHORT).show()
         updateMonitoringStatusUI()
-        logReceiver?.let {
-            LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
-        }
     }
 
 
