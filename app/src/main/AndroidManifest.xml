@@ -69,6 +69,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- Broadcast Receiver dla Bluetooth -->
+        <receiver
+            android:name=".location.BluetoothDeviceConnectedReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+            </intent-filter>
+        </receiver>
+
         <!-- WorkManager  -->
         <provider
             android:name="androidx.startup.InitializationProvider"

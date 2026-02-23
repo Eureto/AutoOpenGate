@@ -397,6 +397,7 @@ class LocationMonitoringService : Service() {
                 Log.d("LocationService", "Geofence dodany pomyślnie.")
                 MyLog.addLogMessageIntoFile(this,"Geofence dodany pomyślnie.")
                 updateMainNotification("Monitorowanie aktywne: Obszar dodany.")
+
                 //start monitoring locaiton at the background so phone can update its position
                 checkLocationAtBackground(this)
             }

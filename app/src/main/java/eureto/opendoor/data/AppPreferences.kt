@@ -2,11 +2,15 @@ package eureto.opendoor.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.ui.input.key.type
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys  //TODO: Change depracated MasterKeys to new implementation
 import com.google.android.gms.maps.model.LatLng
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import eureto.opendoor.BuildConfig
 import eureto.opendoor.network.model.LoginResponse
+import org.json.JSONObject
 
 
 /**
@@ -113,5 +117,24 @@ class AppPreferences(private val context: Context) {
         }
     }
     fun getGeofenceRadius(): Int = encryptedSharedPreferences.getInt("geofence_radius", 1000)
+    fun saveSelectedBluetoothDevices(ListOfDevices: Map<String, String>){
+        with(encryptedSharedPreferences.edit())
+        {
+            //convert map to JSON
+            val json = Gson().toJson(ListOfDevices)
+            putString("selected_bluetooth_devices", json)
+            apply()
+
+        }
+    }
+    fun getSelectedBluetoothDevices(): Map<String, String>? {
+        val json = encryptedSharedPreferences.getString("selected_bluetooth_devices", null) ?: return null
+        return try {
+            val type = object : TypeToken<Map<String, String>>() {}.type
+            Gson().fromJson(json, type)
+        } catch (e: Exception) {
+            null
+        }
+    }
 
 }

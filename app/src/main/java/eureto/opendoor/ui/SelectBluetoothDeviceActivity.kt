@@ -4,55 +4,90 @@ import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import eureto.opendoor.data.AppPreferences
 import eureto.opendoor.databinding.ActivitySelectBluetoothCarAudioBinding
+import eureto.opendoor.logging.MyLog
+import eureto.opendoor.network.EwelinkApiClient
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.iterator
 
 class SelectBluetoothDeviceActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySelectBluetoothCarAudioBinding
     private val deviceListStrings = mutableListOf<String>()
     private lateinit var adapter: ArrayAdapter<String>
+    private var selectedDevice: MutableMap<String, String> = mutableMapOf()
+    private lateinit var appPreferences: AppPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySelectBluetoothCarAudioBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        appPreferences = EwelinkApiClient.getAppPreferences()
+
 
         binding.btnSave.setOnClickListener {
             // TODO: save devices to shared preferences
+            appPreferences.saveSelectedBluetoothDevices(selectedDevice)
+            Toast.makeText(this, "Zapisano urządzenia Bluetooth", Toast.LENGTH_SHORT).show()
+            MyLog.addLogMessageIntoFile(this, "Zapisano urządzenia Bluetooth \n ${selectedDevice.toString()} ")
             finish()
         }
 
-        adapter = ArrayAdapter(
+        adapter = object : ArrayAdapter<String>(
             this,
             android.R.layout.simple_list_item_1,
             deviceListStrings
-        )
+        ) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = super.getView(position, convertView, parent)
+                val item = getItem(position)
+                val macAddress = item?.substringAfter("\n")
+                if (macAddress != null && selectedDevice.containsKey(macAddress)) {
+                    view.setBackgroundColor(Color.LTGRAY)
+                } else {
+                    view.setBackgroundColor(Color.TRANSPARENT)
+                }
+                return view
+            }
+        }
         binding.bluetoothDevicesList.adapter = adapter
 
         binding.bluetoothDevicesList.setOnItemClickListener { _, _, position, _ ->
-            val selectedInfo = deviceListStrings[position]
-            val macAddress = selectedInfo.substringAfter("\n")
-            Toast.makeText(this, "Wybrano: $macAddress", Toast.LENGTH_SHORT).show()
-            // Save this MAC address to your settings/logs here
+                val selectedInfo = deviceListStrings[position]
+                if (selectedInfo == "No paired devices found") return@setOnItemClickListener
+
+                val name = selectedInfo.substringBefore("\n")
+                val macAddress = selectedInfo.substringAfter("\n")
+            if(selectedDevice.containsKey(macAddress)) {
+                selectedDevice.remove(macAddress)
+                Toast.makeText(this, "Usunięto: ${name}", Toast.LENGTH_SHORT).show()
+            }else{
+                selectedDevice.put(macAddress, name)
+                Toast.makeText(this, "Wybrano: $name", Toast.LENGTH_SHORT).show()
+            }
+            adapter.notifyDataSetChanged()
         }
 
         checkPermissionsAndLoadDevices()
+
     }
 
+    // TODO: make this function more elegant
     private fun checkPermissionsAndLoadDevices() {
         val permissions = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
-        } else {
-            // Below Android 12, BLUETOOTH and BLUETOOTH_ADMIN are normal permissions
-            // but we still check them to be safe or if some OEMs handle them differently.
-            // Usually they are granted at install time.
         }
 
         val missingPermissions = permissions.filter {
@@ -67,12 +102,7 @@ class SelectBluetoothDeviceActivity : AppCompatActivity() {
     }
 
     private fun loadPairedDevices() {
-        // Double check for Android 12+ runtime permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                return
-            }
-        }
+
 
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val bluetoothAdapter = bluetoothManager.adapter
@@ -99,6 +129,14 @@ class SelectBluetoothDeviceActivity : AppCompatActivity() {
         if (deviceListStrings.isEmpty()) {
             deviceListStrings.add("No paired devices found")
         }
+
+        // Load saved devices and populate selectedDevice map
+        val savedDevices = appPreferences.getSelectedBluetoothDevices()
+        if(savedDevices != null) {
+            selectedDevice.clear()
+            selectedDevice.putAll(savedDevices)
+        }
+        
         adapter.notifyDataSetChanged()
     }
 
