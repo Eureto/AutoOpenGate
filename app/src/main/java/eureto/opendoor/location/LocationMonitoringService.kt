@@ -317,7 +317,7 @@ class LocationMonitoringService : Service() {
             "GeofenceReceiver",
             "Odległość do najbliższego punktu wielokąta: ${minDistance / 1000f} km"
         )
-        return minDistance / 1000f // Zwróć w kilometrach
+        return minDistance / 1000f // return kilometers
     }
 
     private fun calculateDynamicInterval(distanceKm: Float): Long {

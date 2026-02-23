@@ -96,6 +96,15 @@
             android:textSize="18sp"
             android:layout_marginBottom="16dp"/>
 
+        <Button
+            android:id="@+id/btnOpenBluetoothDeviceSelect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Zaznacz urządzenie bluetooth"
+            android:padding="12dp"
+            android:textSize="18sp"
+            android:layout_marginBottom="16dp"/>
+
         <TextView
             android:id="@+id/tvMonitoringStatus"
             android:layout_width="match_parent"

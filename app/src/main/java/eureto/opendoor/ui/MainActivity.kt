@@ -128,6 +128,11 @@ class MainActivity : AppCompatActivity() {
             finish()
         }
 
+        binding.btnOpenBluetoothDeviceSelect.setOnClickListener{
+            val intent = Intent(this, SelectBluetoothDeviceActivity::class.java)
+            startActivity(intent)
+        }
+
         binding.spinnerDevices.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (position > 0) { // Omiń "Wybierz urządzenie"

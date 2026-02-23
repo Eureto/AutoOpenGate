@@ -13,6 +13,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> <!-- Dla usługi działającej w tle -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" /> <!-- Android 13+ dla powiadomień -->
 
+    <!-- Bluetooth -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+
+
     <application
         android:name=".EwelinkApplication"
         android:allowBackup="true"
@@ -45,6 +52,7 @@
         </activity>
         <activity android:name="eureto.opendoor.ui.MainActivity" />
         <activity android:name="eureto.opendoor.ui.MapActivity" />
+        <activity android:name="eureto.opendoor.ui.SelectBluetoothDeviceActivity" />
 
         <!-- Usługa działająca w tle dla monitorowania lokalizacji -->
         <service
