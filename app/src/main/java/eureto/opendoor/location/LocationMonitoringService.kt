@@ -70,7 +70,6 @@ class LocationMonitoringService : Service() {
         const val NOTIFICATION_CHANNEL_ID = "eureto_opendoor_location_channel"
         const val NOTIFICATION_ID = 123
         const val GEOFENCE_REQUEST_ID = "home_area_geofence"
-        const val GEOFENCE_RADIUS_METERS = 1000f
         const val ACTION_GEOFENCE_TRANSITION = "eureto.opendoor.ACTION_GEOFENCE_TRANSITION"
         const val ACTION_OPEN_GATE = "eureto.opendoor.ACTION_OPEN_GATE"
         const val ACTION_STOP_SERVICE = "eureto.opendoor.ACTION_STOP_SERVICE"
@@ -158,7 +157,7 @@ class LocationMonitoringService : Service() {
             ACTION_START_LOCATION -> {
                 if(locationCheckJob?.isActive == false || locationCheckJob == null) {
                     locationCheckJob = scope.launch {
-                        checkLocation()
+                        checkLocationInGeofence()
                     }
                 }else {
                     MyLog.addLogMessageIntoFile(this,"Próba ponownego uruchominenia sprawdzania lokalizacji")
@@ -170,17 +169,11 @@ class LocationMonitoringService : Service() {
 
         startForeground(
             NOTIFICATION_ID,
-            createNotification("Monitorowanie lokalizacji aktywne.").build()
+            createMainNotification("Monitorowanie lokalizacji aktywne.").build()
         )
-        val isGeofenceEnabled = appPreferences.getIsGeofenceEnabled()
 
-        if (isGeofenceEnabled) {
-            addGeofences()
-        } else {
-            scope.launch {
-                checkLocation()
-            }
-        }
+        addGeofences()
+
         return START_STICKY
     }
 
@@ -202,15 +195,14 @@ class LocationMonitoringService : Service() {
     ///////////////////////////////////
 
     // TODO: make checkLocation function work with and without geofence
-    private suspend fun checkLocation() {
+    private suspend fun checkLocationInGeofence() {
         MyLog.addLogMessageIntoFile(this, "inside checkLocation()")
 
-        val isGeofenceEnabled = appPreferences.getIsGeofenceEnabled()
         val context = applicationContext
         val deviceId = deviceIdToControl
 
         if (deviceId == null || polygonCoordinates == null) {
-            updateNotification("Błąd: Brak wymaganych danych do sprawdzania lokalizacji.")
+            updateMainNotification("Błąd: Brak wymaganych danych do sprawdzania lokalizacji.")
             MyLog.addLogMessageIntoFile(this, " Brak wymaganych danych do sprawdzania lokalizacji")
             return
         }
@@ -226,7 +218,7 @@ class LocationMonitoringService : Service() {
         ) == PackageManager.PERMISSION_GRANTED
 
         if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
-            updateNotification("Błąd: Brak uprawnień do lokalizacji do sprawdzania w tle.")
+            updateMainNotification("Błąd: Brak uprawnień do lokalizacji do sprawdzania w tle.")
             MyLog.addLogMessageIntoFile(this,"Brak uprawnień do lokalizacji do sprawdzania w tle. kod:asdf1")
             return
         }
@@ -240,10 +232,11 @@ class LocationMonitoringService : Service() {
         var dynamicDelay: Long = 1
         var location: Location? = null
 
-        // This logic decides if isGeofencingEnables is set to false then
-        // this while loop can be escaped only when user enters area (gateOpened = true)
-        while ((timeElapsedInMinutes < 10 && !gateOpened) || (!isGeofenceEnabled && !gateOpened)) {
+        while (timeElapsedInMinutes < 60 && !gateOpened) {
             try {
+
+                // TODO: replce it with constant location check rather than requesting it every second
+                // Getting current location of user
                 val cts = CancellationTokenSource()
                 location = try {
                     fusedLocationClient.getCurrentLocation(
@@ -255,7 +248,6 @@ class LocationMonitoringService : Service() {
                     null
                 }
 
-                // Getting current location of user
                 if (location != null) {
                     val currentLocation = LatLng(location.latitude, location.longitude)
                     MyLog.addLogMessageIntoFile(this,"Aktualna lokalizacja: $currentLocation")
@@ -269,12 +261,13 @@ class LocationMonitoringService : Service() {
                         currentLocation.longitude,
                         result)
                     val distanceFromCenterToUser = result[0]
+                    if(geofenceRadius == null) {createInformationNotification("Błąd konfiguracji","Brak promienia geofence, aplikacja kończy działanie"); return}
                     if( distanceFromCenterToUser > geofenceRadius!!*1.5){
-                        MyLog.addLogMessageIntoFile(this," Użytkownik nie jest w obszarze okręgu, funkcja kończy działanie")
+                        MyLog.addLogMessageIntoFile(this," Użytkownik nie jest w obszarze okręgu")
                         // brake
                     }
 
-                    // Check if user enterd are where gate should be opened
+                    // Check if user entered area where gate should be opened
                     val isNowInsidePolygon =
                         PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
 
@@ -283,18 +276,9 @@ class LocationMonitoringService : Service() {
                             "Użytkownik wrócił do obszaru. Włączam bramę."
                         )
 
-                        val timestamp = SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(Date())
                         // Create new notification to tell user that gate was opened
-                        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-                            .setSmallIcon(R.mipmap.ic_launcher_round)
-                            .setContentTitle("Stan Bramy")
-                            .setContentText("Brama została otworzona o godzienie: ${timestamp}")
-                            .setPriority(NotificationCompat.PRIORITY_HIGH)
-                            .setVibrate(longArrayOf(1000))
-
-                        with(NotificationManagerCompat.from(this)) {
-                            notify(1, builder.build())
-                        }
+                        val timestamp = SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(Date())
+                        createInformationNotification("Stan Bramy", "Brama została otworzona o godzienie: $timestamp")
 
                         EwelinkDevices.toggleDevice(deviceId, "on")
                         gateOpened = true
@@ -302,22 +286,12 @@ class LocationMonitoringService : Service() {
                 }
 
             } catch (e: Exception) {
-                updateNotification("Błąd podczas sprawdzania lokalizacji")
+                updateMainNotification("Błąd podczas sprawdzania lokalizacji")
                 MyLog.addLogMessageIntoFile(this,"Błąd podczas sprawdzania lokalizacji: ${e.message}")
             }
 
-            // small delay to save battery
-            if(!isGeofenceEnabled) {
-                if(location != null) {
-                    val currentLocation = LatLng(location.latitude, location.longitude)
-                    var distance = calculateDistanceToPolygon(currentLocation, polygonCoordinates!!)
-                    dynamicDelay = calculateDynamicInterval(distance)
-                    MyLog.addLogMessageIntoFile(this,"Jesteś aktualnie $distance km od obszaru i sprawdzam co $dynamicDelay ms")
-                }
-                delay(TimeUnit.MILLISECONDS.toMillis(dynamicDelay))
-            }else{
-                delay(TimeUnit.SECONDS.toMillis(1))
-            }
+            delay(TimeUnit.SECONDS.toMillis(1))
+
             timeElapsedInMinutes = markStart.elapsedNow().inWholeMinutes
             if(!gateOpened) MyLog.addLogMessageIntoFile(this,"Aktualnie sprawdzanie lokalizacji trwa $timeElapsedInMinutes minute/y")
         }
@@ -348,11 +322,9 @@ class LocationMonitoringService : Service() {
 
     private fun calculateDynamicInterval(distanceKm: Float): Long {
         return when {
-            distanceKm < 0.5 -> TimeUnit.SECONDS.toMillis(1) // Zbyt blisko
-            distanceKm < 1 -> TimeUnit.SECONDS.toMillis(10) // Bardzo blisko, sprawdzaj często
-            distanceKm < 5 -> TimeUnit.MINUTES.toMillis(5) // Blisko
-            distanceKm < 20 -> TimeUnit.MINUTES.toMillis(15) // Średnia odległość
-            distanceKm < 50 -> TimeUnit.MINUTES.toMillis(30) // Dalej
+            distanceKm < 1 -> TimeUnit.MINUTES.toMillis(10)
+            distanceKm >= 1 -> { val timeout = distanceKm / 2 // div by two because if avg speed is 60 km/h then every kilometer is passed by one minute so i will check two times more to be precise
+                TimeUnit.MINUTES.toMillis(timeout.toLong())}
             else -> TimeUnit.HOURS.toMillis(1) // Bardzo daleko, sprawdzaj rzadziej
         }
     }
@@ -377,7 +349,7 @@ class LocationMonitoringService : Service() {
                 "LocationService",
                 "Brak uprawnień do lokalizacji podczas dodawania Geofence. Nie dodaję."
             )
-            updateNotification("Błąd: Brak uprawnień do lokalizacji przy tworzeniu geofence.")
+            updateMainNotification("Błąd: Brak uprawnień do lokalizacji przy tworzeniu geofence.")
             return
         }
 
@@ -388,7 +360,7 @@ class LocationMonitoringService : Service() {
             val msg =
                 "Google Play Services niedostępne (kod $playServicesStatus). Nie można dodać geofence."
             Log.e("LocationService", msg)
-            updateNotification("Błąd: $msg")
+            updateMainNotification("Błąd: $msg")
             return
         }
 
@@ -424,7 +396,7 @@ class LocationMonitoringService : Service() {
             .addOnSuccessListener {
                 Log.d("LocationService", "Geofence dodany pomyślnie.")
                 MyLog.addLogMessageIntoFile(this,"Geofence dodany pomyślnie.")
-                updateNotification("Monitorowanie aktywne: Obszar dodany.")
+                updateMainNotification("Monitorowanie aktywne: Obszar dodany.")
                 //start monitoring locaiton at the background so phone can update its position
                 checkLocationAtBackground(this)
             }
@@ -433,28 +405,31 @@ class LocationMonitoringService : Service() {
                 if (e is com.google.android.gms.common.api.ApiException) {
                     when (e.statusCode) {
                         com.google.android.gms.location.GeofenceStatusCodes.GEOFENCE_NOT_AVAILABLE -> {
-                            updateNotification("Błąd geofencingu: usługa geofence niedostępna (kod 1000). Upewnij się, że precyzyjna lokalizacja jest włączona")
+                            updateMainNotification("Błąd geofencingu: usługa geofence niedostępna (kod 1000). Upewnij się, że precyzyjna lokalizacja jest włączona")
                         }
 
                         com.google.android.gms.location.GeofenceStatusCodes.GEOFENCE_TOO_MANY_GEOFENCES -> {
-                            updateNotification("Błąd geofencingu: za dużo geofence'ów (kod 1001). Usuń niepotrzebne geofency lub zresetuj aplikację.")
+                            updateMainNotification("Błąd geofencingu: za dużo geofence'ów (kod 1001). Usuń niepotrzebne geofency lub zresetuj aplikację.")
                         }
 
                         com.google.android.gms.location.GeofenceStatusCodes.GEOFENCE_TOO_MANY_PENDING_INTENTS -> {
-                            updateNotification("Błąd geofencingu: za dużo PendingIntent (kod 1002).")
+                            updateMainNotification("Błąd geofencingu: za dużo PendingIntent (kod 1002).")
                         }
 
                         else -> {
-                            updateNotification("Błąd dodawania Geofence: ${e.statusCode} - ${e.message}")
+                            updateMainNotification("Błąd dodawania Geofence: ${e.statusCode} - ${e.message}")
                         }
                     }
                 } else {
-                    updateNotification("Błąd dodawania Geofence: ${e?.message}")
+                    updateMainNotification("Błąd dodawania Geofence: ${e?.message}")
                 }
             }
     }
 
-    // TODO: make the delay adjust according to user distance from geofence
+    // Why this function even exists?
+    // Because according to my testing GEOFENCE does not work reliably even in big city.
+    // It is better to update user location using GPS at the background and let the geofence receiver do the work (triggering enter and exit)
+    // and it does not use too much battery.
     fun checkLocationAtBackground(context: Context) {
         // manually run location moniotoring with interval to let the gofence work as expected
         if (isBackgroundLocationLoopRunning) {
@@ -551,7 +526,7 @@ class LocationMonitoringService : Service() {
         }
     }
 
-    private fun createNotification(message: String): NotificationCompat.Builder {
+    private fun createMainNotification(message: String): NotificationCompat.Builder {
         val notificationIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -595,10 +570,33 @@ class LocationMonitoringService : Service() {
             .addAction(R.drawable.ic_launcher_foreground, "Zatrzymaj", stopServicePendingIntent)
     }
 
-    private fun updateNotification(message: String) {
+    private fun updateMainNotification(message: String) {
         MyLog.addLogMessageIntoFile(this,"updateNotification message: $message")
-        val notification = createNotification(message).build()
+        val notification = createMainNotification(message).build()
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
+    private fun createInformationNotification(title: String, message: String){
+        // TODO: Create global funciton that will check for permissions
 
+        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
+            applicationContext,
+            android.Manifest.permission.ACCESS_NOTIFICATION_POLICY
+        ) == PackageManager.PERMISSION_GRANTED
+        if(!hasFineLocationPermission) {
+            MyLog.addLogMessageIntoFile(this, "Brak uprawnień do tworzenia powiadomień")
+            return
+        }
+
+        // Create new notification
+        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVibrate(longArrayOf(1000))
+
+        with(NotificationManagerCompat.from(this)) {
+            notify(1, builder.build())
+        }
+    }
 }

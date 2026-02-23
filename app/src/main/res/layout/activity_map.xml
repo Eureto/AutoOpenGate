@@ -14,19 +14,12 @@
         android:orientation="horizontal"
         android:padding="16dp">
 
-        <Button
-            android:id="@+id/btnTurnOnOffGeofence"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:text="Włącz Geofence" />
-
         <EditText
             android:id="@+id/inputGeofenceRadius"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
             android:layout_weight="1"
             android:ems="10"
             android:hint="Radius in meters"

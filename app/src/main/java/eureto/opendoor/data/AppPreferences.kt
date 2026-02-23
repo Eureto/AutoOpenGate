@@ -113,12 +113,5 @@ class AppPreferences(private val context: Context) {
         }
     }
     fun getGeofenceRadius(): Int = encryptedSharedPreferences.getInt("geofence_radius", 1000)
-    fun setIsGeofenceEnabled(value: Boolean) {
-        with(encryptedSharedPreferences.edit()) {
-            putBoolean("is_geofence_enabled", value)
-            apply()
-        }
-    }
-    fun getIsGeofenceEnabled(): Boolean = encryptedSharedPreferences.getBoolean("is_geofence_enabled", true)
 
 }

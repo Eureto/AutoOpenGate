@@ -29,7 +29,6 @@ class MapActivity : AppCompatActivity(){
     private lateinit var binding: ActivityMapBinding
     private lateinit var appPreferences: AppPreferences
     private var geofenceRadius: Int = 1000
-    private var isGeofenceEnabled: Boolean = true
     private var centerLat: Double = 0.0
     private var centerLng: Double = 0.0
     private val polygonPoints = mutableListOf<GeoPoint>()
@@ -52,14 +51,7 @@ class MapActivity : AppCompatActivity(){
         // przypisanie zapisanych wartości
         appPreferences = EwelinkApiClient.getAppPreferences()
         geofenceRadius = appPreferences.getGeofenceRadius()
-        isGeofenceEnabled = appPreferences.getIsGeofenceEnabled()
 
-        binding.inputGeofenceRadius.setHint(geofenceRadius.toString() + " metrów")
-        if(isGeofenceEnabled) {
-            binding.btnTurnOnOffGeofence.text = "Wyłącz geofence"
-        }else{
-            binding.btnTurnOnOffGeofence.text = "Włącz geofence"
-        }
 
         mMap = binding.osmmap
         mMap.setTileSource(TileSourceFactory.MAPNIK)
@@ -116,21 +108,6 @@ class MapActivity : AppCompatActivity(){
             }
             false
         }
-        binding.btnTurnOnOffGeofence.setOnClickListener {
-            val btnState = binding.btnTurnOnOffGeofence.text.toString()
-            if(btnState == "Włącz geofence") {
-                isGeofenceEnabled = true
-                appPreferences.setIsGeofenceEnabled(true)
-                binding.btnTurnOnOffGeofence.text = "Wyłącz geofence"
-                redrawPolygon()
-            }else{
-                appPreferences.setIsGeofenceEnabled(false)
-                isGeofenceEnabled = false
-                binding.btnTurnOnOffGeofence.text = "Włącz geofence"
-                redrawPolygon()
-            }
-
-        }
     }
 
 
@@ -156,19 +133,18 @@ class MapActivity : AppCompatActivity(){
             mMap.overlays.add(drawnPolygon)
 
             // create geofence circle
-            if(isGeofenceEnabled) {
-                centerLat = polygonPoints.map { it.latitude }.average()
-                centerLng = polygonPoints.map { it.longitude }.average()
-                val centerGeoPoint = GeoPoint(centerLat, centerLng)
-                val circlePoints: MutableList<GeoPoint?> =
-                    Polygon.pointsAsCircle(centerGeoPoint, geofenceRadius.toDouble())
-                var circle = Polygon(mMap)
-                circle.setPoints(circlePoints)
-                circle.getFillPaint().setColor(Color.argb(40, 255, 0, 0))
-                circle.setOnClickListener { circlePolygon, mapView, eventPos -> false }
-                drawCircle = circle
-                mMap.getOverlayManager().add(drawCircle)
-            }
+            centerLat = polygonPoints.map { it.latitude }.average()
+            centerLng = polygonPoints.map { it.longitude }.average()
+            val centerGeoPoint = GeoPoint(centerLat, centerLng)
+            val circlePoints: MutableList<GeoPoint?> =
+                Polygon.pointsAsCircle(centerGeoPoint, geofenceRadius.toDouble())
+            val circle = Polygon(mMap)
+            circle.setPoints(circlePoints)
+            circle.fillPaint.color = Color.argb(40, 255, 0, 0)
+            circle.setOnClickListener { circlePolygon, mapView, eventPos -> false }
+            drawCircle = circle
+            mMap.overlayManager.add(drawCircle)
+
         }
         mMap.invalidate() // Refresh map
     }
