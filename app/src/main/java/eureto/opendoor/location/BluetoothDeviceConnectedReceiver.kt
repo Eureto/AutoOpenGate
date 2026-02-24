@@ -24,6 +24,7 @@ class BluetoothDeviceConnectedReceiver: BroadcastReceiver() {
             val savedDevices = appPreferences.getSelectedBluetoothDevices()
             val savedAddress = savedDevices?.keys?.firstOrNull()
 
+            MyLog.addLogMessageIntoFile(context, "Connected device address: ${connectedAddress}")
             if (connectedAddress == savedAddress) {
                 MyLog.addLogMessageIntoFile(context, "Połączono z wybranym urządzeniem: ${connectedAddress}")
 

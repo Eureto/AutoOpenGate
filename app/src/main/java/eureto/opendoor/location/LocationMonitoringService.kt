@@ -372,7 +372,7 @@ class LocationMonitoringService : Service() {
             .setCircularRegion(centroid.latitude, centroid.longitude, geofenceRadius!!.toFloat())
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
-            .setLoiteringDelay(1000) //62000
+            .setLoiteringDelay(60000) //62000
             .build()
 
         val geofencingRequest = GeofencingRequest.Builder()
