@@ -204,7 +204,7 @@ class LocationMonitoringService : Service() {
 
 
      private fun checkLoctionWhenUserIsInCar() {
-        MyLog.addLogMessageIntoFile(applicationContext, "Checking if user is in car and in home")
+        MyLog.addLogMessageIntoFile(applicationContext, "Checking if user is in car ")
 
         val deviceId = deviceIdToControl
 
@@ -256,7 +256,7 @@ class LocationMonitoringService : Service() {
                 if (isNowInsidePolygon) {
                     MyLog.addLogMessageIntoFile(
                         applicationContext,
-                        "Użytkownik wrócił do obszaru. Włączam bramę."
+                        "Użytkownik wyjeżdża. Włączam bramę."
                     )
 
                     // Create new notification to tell user that gate was opened
@@ -348,32 +348,32 @@ class LocationMonitoringService : Service() {
                     if( distanceFromCenterToUser > geofenceRadius!!*1.5) {
                         MyLog.addLogMessageIntoFile(this, " Użytkownik nie jest w obszarze okręgu")
                         // brake
-
-
-                        // Check if user entered area where gate should be opened
-                        val isNowInsidePolygon =
-                            PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
-
-                        if (isNowInsidePolygon) {
-                            MyLog.addLogMessageIntoFile(
-                                this,
-                                "Użytkownik wrócił do obszaru. Włączam bramę."
-                            )
-
-                            // Create new notification to tell user that gate was opened
-                            val timestamp =
-                                SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(
-                                    Date()
-                                )
-                            createInformationNotification(
-                                "Stan Bramy",
-                                "Brama została otworzona o godzienie: $timestamp"
-                            )
-
-                            EwelinkDevices.toggleDevice(deviceId, "on")
-                            gateOpened = true
-                        }
                     }
+
+                    // Check if user entered area where gate should be opened
+                    val isNowInsidePolygon =
+                        PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
+
+                    if (isNowInsidePolygon) {
+                        MyLog.addLogMessageIntoFile(
+                            this,
+                            "Użytkownik wrócił do obszaru. Włączam bramę."
+                        )
+
+                        // Create new notification to tell user that gate was opened
+                        val timestamp =
+                            SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(
+                                Date()
+                            )
+                        createInformationNotification(
+                            "Stan Bramy",
+                            "Brama została otworzona o godzienie: $timestamp"
+                        )
+
+                        EwelinkDevices.toggleDevice(deviceId, "on")
+                        gateOpened = true
+                    }
+
                 }
 
             } catch (e: Exception) {
