@@ -268,6 +268,8 @@ class LocationMonitoringService : Service() {
                     )
 
                     EwelinkDevices.toggleDevice(deviceId, "on")
+                }else{
+                    MyLog.addLogMessageIntoFile(applicationContext, "Użytkownik nie jest w domu, nie uruchamiam bramy")
                 }
             }
 
@@ -521,7 +523,7 @@ class LocationMonitoringService : Service() {
     // Because according to my testing GEOFENCE does not work reliably even in big city.
     // It is better to update user location using GPS at the background and let the geofence receiver do the work (triggering enter and exit)
     // and it does not use too much battery.
-    fun checkLocationAtBackground(context: Context) {
+    private fun checkLocationAtBackground(context: Context) {
         // manually run location moniotoring with interval to let the gofence work as expected
         if (isBackgroundLocationLoopRunning) {
             MyLog.addLogMessageIntoFile(this,"Pętla już działa, nie uruchamiam ponownie.")
@@ -544,7 +546,7 @@ class LocationMonitoringService : Service() {
         }
         MyLog.addLogMessageIntoFile(this,"Zaczynam pobieranie lokalizacji w tle")
         val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-
+        var dynamicDelay: Long = 1000L * 60
         scope.launch {
             isBackgroundLocationLoopRunning = true
             MyLog.addLogMessageIntoFile(context,"Pętla tła URUCHOMIONA")
@@ -565,8 +567,9 @@ class LocationMonitoringService : Service() {
                                 // TODO: Check if user is in the geofence circle
                                 // if it is then quit this function of just set the delay to idk. 1hour or so
                                 // or implement the ability to trigger this function while GeofenceTransition.EXIT
-                                val dynamicDelay = calculateDynamicInterval(distance) / 1000 //div by 1000 to get seconds
-                                MyLog.addLogMessageIntoFile(context,"Jesteś $distance km od obszaru | delay test: $dynamicDelay s")
+                                dynamicDelay = calculateDynamicInterval(distance)  //div by 1000 to get seconds
+                                val delayInSeconds = dynamicDelay/1000
+                                MyLog.addLogMessageIntoFile(context,"Jesteś $distance km od obszaru | delay test: $delayInSeconds s")
 
                         }
                     } catch (e: Exception) {
@@ -574,7 +577,7 @@ class LocationMonitoringService : Service() {
                     } finally {
                         cts.cancel()
                     }
-                    delay(TimeUnit.MINUTES.toMillis(1))
+                    delay(TimeUnit.MILLISECONDS.toMillis(dynamicDelay))
                 }
             }finally {
                 isBackgroundLocationLoopRunning = false
