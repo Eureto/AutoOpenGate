@@ -1,5 +1,6 @@
 package eureto.opendoor.location
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -12,6 +13,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import android.widget.Toast
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -74,6 +76,8 @@ class LocationMonitoringService : Service() {
         const val ACTION_OPEN_GATE = "eureto.opendoor.ACTION_OPEN_GATE"
         const val ACTION_STOP_SERVICE = "eureto.opendoor.ACTION_STOP_SERVICE"
         const val ACTION_START_LOCATION = "eureto.opendoor.ACTION_START_LOCATION"
+        const val ACTION_LOCATION_CHECK_IN_CAR = "eureto.opendoor.ACTION_LOCATION_CHECK_AT_HOME"
+
     }
 
 
@@ -164,6 +168,11 @@ class LocationMonitoringService : Service() {
                 }
                 return START_STICKY
             }
+            ACTION_LOCATION_CHECK_IN_CAR -> {
+
+                checkLoctionWhenUserIsInCar()
+                return START_STICKY
+            }
         }
 
 
@@ -194,7 +203,75 @@ class LocationMonitoringService : Service() {
     //      MANUAL CHECKING          //
     ///////////////////////////////////
 
-    // TODO: make checkLocation function work with and without geofence
+
+     private fun checkLoctionWhenUserIsInCar() {
+        MyLog.addLogMessageIntoFile(applicationContext, "Checking if user is in car and in home")
+
+        val deviceId = deviceIdToControl
+
+        if (deviceId == null || polygonCoordinates == null) {
+            updateMainNotification("Błąd: Brak wymaganych danych do sprawdzania lokalizacji.")
+            MyLog.addLogMessageIntoFile(this, " Brak wymaganych danych do sprawdzania lokalizacji")
+            return
+        }
+
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return
+        }
+        //Prompt for user location
+        scope.launch {
+            val cts = CancellationTokenSource()
+            val location = try {
+                fusedLocationClient.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    cts.token
+                ).await()
+            } catch (e: Exception) {
+                MyLog.addLogMessageIntoFile(applicationContext,"Błąd pobierania lokalizacji: ${e.message}")
+                null
+            }
+
+            if (location != null) {
+                // check if user is in selected area if yes then toggle device
+                val currentLocation = LatLng(location.latitude, location.longitude)
+
+                val isNowInsidePolygon =
+                PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
+
+                if (isNowInsidePolygon) {
+                    MyLog.addLogMessageIntoFile(
+                        applicationContext,
+                        "Użytkownik wrócił do obszaru. Włączam bramę."
+                    )
+
+                    // Create new notification to tell user that gate was opened
+                    val timestamp =
+                        SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(Date())
+                    createInformationNotification(
+                        "Stan Bramy",
+                        "Brama została otworzona o godzienie: $timestamp"
+                    )
+
+                    EwelinkDevices.toggleDevice(deviceId, "on")
+                }
+            }
+
+        }
+    }
     private suspend fun checkLocationInGeofence() {
         MyLog.addLogMessageIntoFile(this, "inside checkLocation()")
 
