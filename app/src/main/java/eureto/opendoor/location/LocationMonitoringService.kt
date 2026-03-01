@@ -180,7 +180,7 @@ class LocationMonitoringService : Service() {
             NOTIFICATION_ID,
             createMainNotification("Monitorowanie lokalizacji aktywne.").build()
         )
-
+        setFlagIfUserInCircle()
         addGeofences()
 
         return START_STICKY
@@ -202,7 +202,68 @@ class LocationMonitoringService : Service() {
     //      MANUAL CHECKING          //
     ///////////////////////////////////
 
+    private fun setFlagIfUserInCircle(){
 
+        // Checking permissions
+        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
+            applicationContext,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarseLocationPermission = ContextCompat.checkSelfPermission(
+            applicationContext,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
+            MyLog.addLogMessageIntoFile(this,"Brak uprawnień do lokalizacji do sprawdzania w tle.")
+            return
+        }
+
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(applicationContext)
+        scopeBackgroundLocation.launch {
+            val cts = CancellationTokenSource()
+            try {
+                val location =
+                    fusedLocationClient.getCurrentLocation(
+                        Priority.PRIORITY_HIGH_ACCURACY,
+                        cts.token
+                    ).await()
+                if (location != null) {
+                    val currentLocation = LatLng(location.latitude, location.longitude)
+                    val result = FloatArray(1)
+                    Location.distanceBetween(
+                        polygonCenter!!.latitude,
+                        polygonCenter!!.longitude,
+                        currentLocation.latitude,
+                        currentLocation.longitude,
+                        result
+                    )
+                    val distanceFromCenterToUser = result[0]
+                    if (geofenceRadius == null) {
+                        createNewUserNotification(
+                            "Błąd konfiguracji",
+                            "Brak promienia geofence, aplikacja kończy działanie"
+                        )
+                        return@launch
+                    }
+
+                    if (distanceFromCenterToUser > geofenceRadius!!) {
+                        MyLog.addLogMessageIntoFile(
+                            applicationContext,
+                            " Użytkownik nie jest w obszarze okręgu"
+                        )
+                        appPreferences.setIsUserInCircle(false)
+                        // brake
+                    }else{
+                        appPreferences.setIsUserInCircle(true)
+                    }
+                }
+            } catch(e: Exception)
+            {
+                MyLog.addLogMessageIntoFile(applicationContext,"Błąd aktualizacji lokalizacji w tle: ${e.message}")
+            }
+        }
+    }
      private fun checkLoctionWhenUserIsInCar() {
         MyLog.addLogMessageIntoFile(applicationContext, "Checking if user is in car ")
 
@@ -336,6 +397,12 @@ class LocationMonitoringService : Service() {
                     return
                 }
 
+                if( distanceFromCenterToUser < geofenceRadius!!){
+                    appPreferences.setIsUserInCircle(true)
+                }else {
+                    appPreferences.setIsUserInCircle(false)
+                }
+
                 if( distanceFromCenterToUser > geofenceRadius!!*1.5) {
                     MyLog.addLogMessageIntoFile(applicationContext, " Użytkownik nie jest w obszarze okręgu")
                     // brake
@@ -416,10 +483,10 @@ class LocationMonitoringService : Service() {
     }
 
     private fun calculateDynamicInterval(distanceKm: Float): Long {
-        return 5000
+
         return when {
             distanceKm < 1 -> TimeUnit.MINUTES.toMillis(10)
-            distanceKm >= 1 -> { val timeout = distanceKm / 2 // div by two because if avg speed is 60 km/h then every kilometer is passed by one minute so I will check two times more to be precise
+            distanceKm >= 1 -> { val timeout = distanceKm / 3 // div by two because if avg speed is 60 km/h then every kilometer is passed by one minute so I will check two times more to be precise
                 TimeUnit.MINUTES.toMillis(timeout.toLong())}
             else -> TimeUnit.HOURS.toMillis(1) // Bardzo daleko, sprawdzaj rzadziej
         }
@@ -564,16 +631,15 @@ class LocationMonitoringService : Service() {
                             cts.token
                         ).await()
                         if(location != null) {
-                            MyLog.addLogMessageIntoFile(context,"Zaktualizowano lokalizacje w tle")
 
-                                val currentLocation = LatLng(location.latitude, location.longitude)
-                                val distance = calculateDistanceToPolygon(currentLocation, polygonCoordinates!!)
-                                // TODO: Check if user is in the geofence circle
-                                // if it is then quit this function of just set the delay to idk. 1hour or so
-                                // or implement the ability to trigger this function while GeofenceTransition.EXIT
-                                dynamicDelay = calculateDynamicInterval(distance)  //div by 1000 to get seconds
-                                val delayInSeconds = dynamicDelay/1000
-                                MyLog.addLogMessageIntoFile(context,"Jesteś $distance km od obszaru | delay test: $delayInSeconds s")
+                            val currentLocation = LatLng(location.latitude, location.longitude)
+                            val distance = calculateDistanceToPolygon(currentLocation, polygonCoordinates!!)
+                            // TODO: Check if user is in the geofence circle
+                            // if it is then quit this function of just set the delay to idk. 1hour or so
+                            // or implement the ability to trigger this function while GeofenceTransition.EXIT
+                            dynamicDelay = calculateDynamicInterval(distance)  //div by 1000 to get seconds
+                            val delayInSeconds = dynamicDelay/1000
+                            MyLog.addLogMessageIntoFile(context,"Jesteś $distance km od obszaru |\n delay: $delayInSeconds s | \n Czy jesteś w okręgu?: ${appPreferences.getIsUserInCircle()}")
 
                         }
                     } catch (e: Exception) {

@@ -80,8 +80,8 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
         when (geofenceTransition) {
             Geofence.GEOFENCE_TRANSITION_ENTER -> {
+                appPreferences.setIsUserInCircle(true)
                 MyLog.addLogMessageIntoFile(context, "Zdarzenie GEOFENCE_TRANSITION_DWELL")
-                MyLog.addLogMessageIntoFile(context, "Sprawdzanie lokalizacji w tle...")
                 val locationIntent = Intent(context, LocationMonitoringService::class.java).apply {
                     action = ACTION_START_LOCATION
                 }
@@ -90,7 +90,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
             //TODO: Dodaj obsługe zdarzenia EXIT w geofence receiver
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
-                Log.d("GeofenceReceiver", "Zdarzenie GEOFENCE_TRANSITION_EXIT")
+                appPreferences.setIsUserInCircle(false)
                 MyLog.addLogMessageIntoFile(context, "Zdarzenie GEOFENCE_TRANSITION_EXIT ale robie return")
                 return
             }
