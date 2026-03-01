@@ -262,7 +262,7 @@ class LocationMonitoringService : Service() {
                     // Create new notification to tell user that gate was opened
                     val timestamp =
                         SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(Date())
-                    createInformationNotification(
+                    createNewUserNotification(
                         "Stan Bramy",
                         "Brama została otworzona o godzienie: $timestamp"
                     )
@@ -276,13 +276,14 @@ class LocationMonitoringService : Service() {
         }
     }
     private suspend fun checkLocationInGeofence() {
-        MyLog.addLogMessageIntoFile(this, "inside checkLocation()")
+        MyLog.addLogMessageIntoFile(this, "Zaczynam funkcje sprawdzania lokalizacji w geofence")
 
         val context = applicationContext
         val deviceId = deviceIdToControl
 
         if (deviceId == null || polygonCoordinates == null) {
             updateMainNotification("Błąd: Brak wymaganych danych do sprawdzania lokalizacji.")
+
             MyLog.addLogMessageIntoFile(this, " Brak wymaganych danych do sprawdzania lokalizacji")
             return
         }
@@ -343,7 +344,7 @@ class LocationMonitoringService : Service() {
                         result)
                     val distanceFromCenterToUser = result[0]
                     if(geofenceRadius == null) {
-                        createInformationNotification("Błąd konfiguracji","Brak promienia geofence, aplikacja kończy działanie")
+                        createNewUserNotification("Błąd konfiguracji","Brak promienia geofence, aplikacja kończy działanie")
                         return
                     }
 
@@ -367,7 +368,7 @@ class LocationMonitoringService : Service() {
                             SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(
                                 Date()
                             )
-                        createInformationNotification(
+                        createNewUserNotification(
                             "Stan Bramy",
                             "Brama została otworzona o godzienie: $timestamp"
                         )
@@ -669,16 +670,28 @@ class LocationMonitoringService : Service() {
         val notification = createMainNotification(message).build()
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
-    private fun createInformationNotification(title: String, message: String){
+    private fun createNewUserNotification(title: String, message: String){
         // TODO: Create global funciton that will check for permissions
 
-        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
-            applicationContext,
-            Manifest.permission.ACCESS_NOTIFICATION_POLICY
-        ) == PackageManager.PERMISSION_GRANTED
-        if(!hasFineLocationPermission) {
-            MyLog.addLogMessageIntoFile(this, "Brak uprawnień do tworzenia powiadomień")
+        val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
+
+        if (!notificationsEnabled) {
+            MyLog.addLogMessageIntoFile(this, "Brak uprawnień do tworzenia powiadomień (wyłączone w ustawieniach systemowych)")
             return
+        }
+
+        // Special check for android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasPermission) {
+                MyLog.addLogMessageIntoFile(this, "Brak uprawnienia POST_NOTIFICATIONS (Android 13+).")
+                // TODO: request permissoin before creating service!!!
+                return
+            }
         }
 
         // Create new notification
