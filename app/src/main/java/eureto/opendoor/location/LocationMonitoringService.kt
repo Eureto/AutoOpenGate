@@ -282,9 +282,7 @@ class LocationMonitoringService : Service() {
         val deviceId = deviceIdToControl
 
         if (deviceId == null || polygonCoordinates == null) {
-            updateMainNotification("Błąd: Brak wymaganych danych do sprawdzania lokalizacji.")
-
-            MyLog.addLogMessageIntoFile(this, " Brak wymaganych danych do sprawdzania lokalizacji")
+            createNewUserNotification("Błąd", "Brak wymaganych danych do sprawdzania lokalizacji")
             return
         }
 
@@ -299,8 +297,7 @@ class LocationMonitoringService : Service() {
         ) == PackageManager.PERMISSION_GRANTED
 
         if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
-            updateMainNotification("Błąd: Brak uprawnień do lokalizacji do sprawdzania w tle.")
-            MyLog.addLogMessageIntoFile(this,"Brak uprawnień do lokalizacji do sprawdzania w tle. kod:asdf1")
+            createNewUserNotification("Błąd", "Brak uprawnień do sprawdzania lokalizacji w tle")
             return
         }
 
@@ -672,7 +669,7 @@ class LocationMonitoringService : Service() {
     }
     private fun createNewUserNotification(title: String, message: String){
         // TODO: Create global funciton that will check for permissions
-
+        MyLog.addLogMessageIntoFile(applicationContext, "Stworzono nowe powiadomienie: $title : $message ")
         val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
 
         if (!notificationsEnabled) {
