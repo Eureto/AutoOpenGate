@@ -220,7 +220,8 @@ class LocationMonitoringService : Service() {
         }
 
         val fusedLocationClient = LocationServices.getFusedLocationProviderClient(applicationContext)
-        scopeBackgroundLocation.launch {
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
             val cts = CancellationTokenSource()
             try {
                 val location =
@@ -639,7 +640,8 @@ class LocationMonitoringService : Service() {
                             // or implement the ability to trigger this function while GeofenceTransition.EXIT
                             dynamicDelay = calculateDynamicInterval(distance)  //div by 1000 to get seconds
                             val delayInSeconds = dynamicDelay/1000
-                            MyLog.addLogMessageIntoFile(context,"Jesteś $distance km od obszaru |\n delay: $delayInSeconds s | \n Czy jesteś w okręgu?: ${appPreferences.getIsUserInCircle()}")
+                            val isUserInCircle = appPreferences.getIsUserInCircle()
+                            MyLog.addLogMessageIntoFile(context,"Jesteś $distance km od obszaru |\n delay: $delayInSeconds s | \n Czy jesteś w okręgu?: ${isUserInCircle}")
 
                         }
                     } catch (e: Exception) {
