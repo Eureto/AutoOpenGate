@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Build
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
@@ -21,6 +22,9 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.model.LatLng
@@ -30,9 +34,9 @@ import com.google.gson.reflect.TypeToken
 import com.google.maps.android.PolyUtil
 import eureto.opendoor.R
 import eureto.opendoor.data.AppPreferences
+import eureto.opendoor.logging.MyLog
 import eureto.opendoor.network.EwelinkApiClient
 import eureto.opendoor.network.EwelinkDevices
-import eureto.opendoor.logging.MyLog
 import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
@@ -61,8 +65,8 @@ class LocationMonitoringService : Service() {
     private var polygonCenterJSON: String? = null
     private var polygonCenter: LatLng? = null
     private var geofenceRadius: Int? = null
-    private val scope = CoroutineScope(Dispatchers.Main)
-    private var locationCheckJob: Job? = null
+    private val scopeLocationCheckInCar = CoroutineScope(Dispatchers.Main)
+    private val scopeBackgroundLocation = CoroutineScope(Dispatchers.IO)
     private var isBackgroundLocationLoopRunning = false
 
     // Static values for intents and notifications
@@ -159,13 +163,9 @@ class LocationMonitoringService : Service() {
             }
 
             ACTION_START_LOCATION -> {
-                if(locationCheckJob?.isActive == false || locationCheckJob == null) {
-                    locationCheckJob = scope.launch {
-                        checkLocationInGeofence()
-                    }
-                }else {
-                    MyLog.addLogMessageIntoFile(this,"Próba ponownego uruchominenia sprawdzania lokalizacji")
-                }
+
+                checkLocationInGeofence()
+
                 return START_STICKY
             }
             ACTION_LOCATION_CHECK_IN_CAR -> {
@@ -180,7 +180,7 @@ class LocationMonitoringService : Service() {
             NOTIFICATION_ID,
             createMainNotification("Monitorowanie lokalizacji aktywne.").build()
         )
-
+        setFlagIfUserInCircle()
         addGeofences()
 
         return START_STICKY
@@ -202,7 +202,69 @@ class LocationMonitoringService : Service() {
     //      MANUAL CHECKING          //
     ///////////////////////////////////
 
+    private fun setFlagIfUserInCircle(){
 
+        // Checking permissions
+        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
+            applicationContext,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarseLocationPermission = ContextCompat.checkSelfPermission(
+            applicationContext,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
+            MyLog.addLogMessageIntoFile(this,"Brak uprawnień do lokalizacji do sprawdzania w tle.")
+            return
+        }
+
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(applicationContext)
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            val cts = CancellationTokenSource()
+            try {
+                val location =
+                    fusedLocationClient.getCurrentLocation(
+                        Priority.PRIORITY_HIGH_ACCURACY,
+                        cts.token
+                    ).await()
+                if (location != null) {
+                    val currentLocation = LatLng(location.latitude, location.longitude)
+                    val result = FloatArray(1)
+                    Location.distanceBetween(
+                        polygonCenter!!.latitude,
+                        polygonCenter!!.longitude,
+                        currentLocation.latitude,
+                        currentLocation.longitude,
+                        result
+                    )
+                    val distanceFromCenterToUser = result[0]
+                    if (geofenceRadius == null) {
+                        createNewUserNotification(
+                            "Błąd konfiguracji",
+                            "Brak promienia geofence, aplikacja kończy działanie"
+                        )
+                        return@launch
+                    }
+
+                    if (distanceFromCenterToUser > geofenceRadius!!) {
+                        MyLog.addLogMessageIntoFile(
+                            applicationContext,
+                            " Użytkownik nie jest w obszarze okręgu"
+                        )
+                        appPreferences.setIsUserInCircle(false)
+                        // brake
+                    }else{
+                        appPreferences.setIsUserInCircle(true)
+                    }
+                }
+            } catch(e: Exception)
+            {
+                MyLog.addLogMessageIntoFile(applicationContext,"Błąd aktualizacji lokalizacji w tle: ${e.message}")
+            }
+        }
+    }
      private fun checkLoctionWhenUserIsInCar() {
         MyLog.addLogMessageIntoFile(applicationContext, "Checking if user is in car ")
 
@@ -234,7 +296,7 @@ class LocationMonitoringService : Service() {
          fusedLocationClient = LocationServices.getFusedLocationProviderClient(applicationContext)
 
         //Prompt for user location
-        scope.launch {
+        scopeLocationCheckInCar.launch {
             val cts = CancellationTokenSource()
             val location = try {
                 fusedLocationClient.getCurrentLocation(
@@ -275,31 +337,37 @@ class LocationMonitoringService : Service() {
 
         }
     }
-    private suspend fun checkLocationInGeofence() {
+    private fun checkLocationInGeofence() {
         MyLog.addLogMessageIntoFile(this, "Zaczynam funkcje sprawdzania lokalizacji w geofence")
 
-        val context = applicationContext
-        val deviceId = deviceIdToControl
+        ////////////////////////////////////  Loading settings ////////////////////////////
+            val context = applicationContext
+            val deviceId = deviceIdToControl
 
-        if (deviceId == null || polygonCoordinates == null) {
-            createNewUserNotification("Błąd", "Brak wymaganych danych do sprawdzania lokalizacji")
-            return
-        }
+            if (deviceId == null || polygonCoordinates == null) {
+                createNewUserNotification("Błąd", "Brak wymaganych danych do sprawdzania lokalizacji")
+                return
+            }
 
-        // Checking permissions
-        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        val hasCoarseLocationPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        ///////////////////////////////////  Checking permissions  ///////////////////////////
+            val hasFineLocationPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+            val hasCoarseLocationPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
 
-        if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
-            createNewUserNotification("Błąd", "Brak uprawnień do sprawdzania lokalizacji w tle")
-            return
-        }
+            if (!(hasFineLocationPermission || hasCoarseLocationPermission)) {
+                createNewUserNotification("Błąd", "Brak uprawnień do sprawdzania lokalizacji w tle")
+                // ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+                // ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, 2);
+                return
+            }
+
+
+        /////////////////////////////////////////  Check user location //////////////////////////////////////////
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
 
@@ -307,84 +375,89 @@ class LocationMonitoringService : Service() {
         val markStart = timeSource.markNow()
         var timeElapsedInMinutes: Long = 0
         var gateOpened = false
-        var location: Location?
 
-        while (timeElapsedInMinutes < 60 && !gateOpened) {
-            try {
+        lateinit var locationCallback: LocationCallback
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                val location = locationResult.lastLocation ?: return
 
-                // TODO: replce it with constant location check rather than requesting it every second
-                // https://developer.android.com/develop/sensors-and-location/location/request-updates
+                val currentLocation = LatLng(location.latitude, location.longitude)
+                MyLog.addLogMessageIntoFile(applicationContext,"Aktualna lokalizacja: $currentLocation")
 
-                // Requesting current location of user
-                val cts = CancellationTokenSource()
-                location = try {
-                    fusedLocationClient.getCurrentLocation(
-                        Priority.PRIORITY_HIGH_ACCURACY,
-                        cts.token
-                    ).await()
-                } catch (e: Exception) {
-                    MyLog.addLogMessageIntoFile(this,"Błąd pobierania lokalizacji: ${e.message}")
-                    null
+                // Check if user is in the geofence circle
+                val result = FloatArray(1)
+                Location.distanceBetween(
+                    polygonCenter!!.latitude,
+                    polygonCenter!!.longitude,
+                    currentLocation.latitude,
+                    currentLocation.longitude,
+                    result)
+                val distanceFromCenterToUser = result[0]
+                if(geofenceRadius == null) {
+                    createNewUserNotification("Błąd konfiguracji","Brak promienia geofence, aplikacja kończy działanie")
+                    return
                 }
 
-                if (location != null) {
-                    val currentLocation = LatLng(location.latitude, location.longitude)
-                    MyLog.addLogMessageIntoFile(this,"Aktualna lokalizacja: $currentLocation")
-
-                    // Check if user is in the geofence circle
-                    val result = FloatArray(1)
-                    Location.distanceBetween(
-                        polygonCenter!!.latitude,
-                        polygonCenter!!.longitude,
-                        currentLocation.latitude,
-                        currentLocation.longitude,
-                        result)
-                    val distanceFromCenterToUser = result[0]
-                    if(geofenceRadius == null) {
-                        createNewUserNotification("Błąd konfiguracji","Brak promienia geofence, aplikacja kończy działanie")
-                        return
-                    }
-
-                    if( distanceFromCenterToUser > geofenceRadius!!*1.5) {
-                        MyLog.addLogMessageIntoFile(this, " Użytkownik nie jest w obszarze okręgu")
-                        // brake
-                    }
-
-                    // Check if user entered area where gate should be opened
-                    val isNowInsidePolygon =
-                        PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
-
-                    if (isNowInsidePolygon) {
-                        MyLog.addLogMessageIntoFile(
-                            this,
-                            "Użytkownik wrócił do obszaru. Włączam bramę."
-                        )
-
-                        // Create new notification to tell user that gate was opened
-                        val timestamp =
-                            SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(
-                                Date()
-                            )
-                        createNewUserNotification(
-                            "Stan Bramy",
-                            "Brama została otworzona o godzienie: $timestamp"
-                        )
-
-                        EwelinkDevices.toggleDevice(deviceId, "on")
-                        gateOpened = true
-                    }
-
+                if( distanceFromCenterToUser < geofenceRadius!!){
+                    appPreferences.setIsUserInCircle(true)
+                }else {
+                    appPreferences.setIsUserInCircle(false)
                 }
 
-            } catch (e: Exception) {
-                updateMainNotification("Błąd podczas sprawdzania lokalizacji")
-                MyLog.addLogMessageIntoFile(this,"Błąd podczas sprawdzania lokalizacji: ${e.message}")
+                if( distanceFromCenterToUser > geofenceRadius!!*1.5) {
+                    MyLog.addLogMessageIntoFile(applicationContext, " Użytkownik nie jest w obszarze okręgu")
+                    // brake
+                }
+
+                // Check if user entered area where gate should be opened
+                val isNowInsidePolygon =
+                    PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
+
+                if (isNowInsidePolygon) {
+                    MyLog.addLogMessageIntoFile(
+                        applicationContext,
+                        "Użytkownik wrócił do obszaru. Włączam bramę."
+                    )
+
+                    // Create new notification to tell user that gate was opened
+                    val timestamp =
+                        SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(
+                            Date()
+                        )
+                    createNewUserNotification(
+                        "Stan Bramy",
+                        "Brama została otworzona o godzienie: $timestamp"
+                    )
+
+                    EwelinkDevices.toggleDevice(deviceId, "on")
+                    gateOpened = true
+
+                    fusedLocationClient.removeLocationUpdates(locationCallback).addOnSuccessListener {
+                        MyLog.addLogMessageIntoFile(applicationContext, "Usunięto listener lokalizacji")
+                    }
+                }
+
+                timeElapsedInMinutes = markStart.elapsedNow().inWholeMinutes
+                if(!gateOpened) MyLog.addLogMessageIntoFile(applicationContext,"Aktualnie sprawdzanie lokalizacji trwa $timeElapsedInMinutes minute/y")
+                if(timeElapsedInMinutes > 30) {
+                    MyLog.addLogMessageIntoFile(applicationContext, "Przekroczono czas sprawdzania lokalizacji")
+                    fusedLocationClient.removeLocationUpdates(locationCallback).addOnSuccessListener {
+                        MyLog.addLogMessageIntoFile(applicationContext, "Usunięto listener lokalizacji")
+                    }
+                }
             }
-
-
-            timeElapsedInMinutes = markStart.elapsedNow().inWholeMinutes
-            if(!gateOpened) MyLog.addLogMessageIntoFile(this,"Aktualnie sprawdzanie lokalizacji trwa $timeElapsedInMinutes minute/y")
         }
+
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000) // 5 sekund
+            .setWaitForAccurateLocation(false)
+            .setMinUpdateIntervalMillis(2000) // 2 sec.
+            .setMaxUpdateDelayMillis(4000) // 4 sec.
+            .build()
+
+        fusedLocationClient.requestLocationUpdates(locationRequest,
+            locationCallback,
+            Looper.getMainLooper())
+
         return
 
     }
@@ -411,9 +484,10 @@ class LocationMonitoringService : Service() {
     }
 
     private fun calculateDynamicInterval(distanceKm: Float): Long {
+
         return when {
             distanceKm < 1 -> TimeUnit.MINUTES.toMillis(10)
-            distanceKm >= 1 -> { val timeout = distanceKm / 2 // div by two because if avg speed is 60 km/h then every kilometer is passed by one minute so I will check two times more to be precise
+            distanceKm >= 1 -> { val timeout = distanceKm / 3 // div by two because if avg speed is 60 km/h then every kilometer is passed by one minute so I will check two times more to be precise
                 TimeUnit.MINUTES.toMillis(timeout.toLong())}
             else -> TimeUnit.HOURS.toMillis(1) // Bardzo daleko, sprawdzaj rzadziej
         }
@@ -545,7 +619,7 @@ class LocationMonitoringService : Service() {
         MyLog.addLogMessageIntoFile(this,"Zaczynam pobieranie lokalizacji w tle")
         val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
         var dynamicDelay: Long = 1000L * 60
-        scope.launch {
+        scopeBackgroundLocation.launch {
             isBackgroundLocationLoopRunning = true
             MyLog.addLogMessageIntoFile(context,"Pętla tła URUCHOMIONA")
             try {
@@ -558,16 +632,16 @@ class LocationMonitoringService : Service() {
                             cts.token
                         ).await()
                         if(location != null) {
-                            MyLog.addLogMessageIntoFile(context,"Zaktualizowano lokalizacje w tle")
 
-                                val currentLocation = LatLng(location.latitude, location.longitude)
-                                val distance = calculateDistanceToPolygon(currentLocation, polygonCoordinates!!)
-                                // TODO: Check if user is in the geofence circle
-                                // if it is then quit this function of just set the delay to idk. 1hour or so
-                                // or implement the ability to trigger this function while GeofenceTransition.EXIT
-                                dynamicDelay = calculateDynamicInterval(distance)  //div by 1000 to get seconds
-                                val delayInSeconds = dynamicDelay/1000
-                                MyLog.addLogMessageIntoFile(context,"Jesteś $distance km od obszaru | delay test: $delayInSeconds s")
+                            val currentLocation = LatLng(location.latitude, location.longitude)
+                            val distance = calculateDistanceToPolygon(currentLocation, polygonCoordinates!!)
+                            // TODO: Check if user is in the geofence circle
+                            // if it is then quit this function of just set the delay to idk. 1hour or so
+                            // or implement the ability to trigger this function while GeofenceTransition.EXIT
+                            dynamicDelay = calculateDynamicInterval(distance)  //div by 1000 to get seconds
+                            val delayInSeconds = dynamicDelay/1000
+                            val isUserInCircle = appPreferences.getIsUserInCircle()
+                            MyLog.addLogMessageIntoFile(context,"Jesteś $distance km od obszaru |\n delay: $delayInSeconds s | \n Czy jesteś w okręgu?: ${isUserInCircle}")
 
                         }
                     } catch (e: Exception) {
