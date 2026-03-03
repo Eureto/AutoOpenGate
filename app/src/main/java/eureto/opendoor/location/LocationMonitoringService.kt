@@ -487,7 +487,7 @@ class LocationMonitoringService : Service() {
 
         return when {
             distanceKm < 1 -> TimeUnit.MINUTES.toMillis(10)
-            distanceKm >= 1 -> { val timeout = distanceKm / 3 // div by two because if avg speed is 60 km/h then every kilometer is passed by one minute so I will check two times more to be precise
+            distanceKm >= 1 -> { val timeout = distanceKm
                 TimeUnit.MINUTES.toMillis(timeout.toLong())}
             else -> TimeUnit.HOURS.toMillis(1) // Bardzo daleko, sprawdzaj rzadziej
         }
