@@ -11,11 +11,11 @@ If the user enters the selected area, a toggle signal is sent to the device (e.g
 </div>
 
 ToDo:
-- add option to turn gate when user is in area and connects to bluetooth (car audio)
+- turn off location check until user connects to car and start driving, only check location when user is in car
 - before turning on device check if state is on
 - check if ewelink secret expired and refresh it
 - do not fetch devices every time app starts
-- prompt user for high accuracy location permission at the start of app
+- prompt user for all required permissions
 
 
 Compilation:
