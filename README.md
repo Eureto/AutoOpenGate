@@ -12,10 +12,12 @@ If the user enters the selected area, a toggle signal is sent to the device (e.g
 
 ToDo:
 - turn off location check until user connects to car and start driving, only check location when user is in car
-- before turning on device check if state is on
-- check if ewelink secret expired and refresh it
+- before turning on device check if gete is not opened 
 - do not fetch devices every time app starts
 - prompt user for all required permissions
+- add screens to learn users how to use app
+- redesign main screen
+- change log output from start to bottom so the newest messages appear on top
 
 
 Compilation:
