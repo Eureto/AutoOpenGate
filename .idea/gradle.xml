@@ -8,8 +8,8 @@
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>
-            <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/app" />
+            <option value="/mnt/hdd/repos/Android/OpenDoor" />
+            <option value="/mnt/hdd/repos/Android/OpenDoor/app" />
           </set>
         </option>
       </GradleProjectSettings>
