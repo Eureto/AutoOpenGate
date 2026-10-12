@@ -484,10 +484,9 @@ class LocationMonitoringService : Service() {
     }
 
     private fun calculateDynamicInterval(distanceKm: Float): Long {
-
         return when {
-            distanceKm < 1 -> TimeUnit.MINUTES.toMillis(10)
-            distanceKm >= 1 -> { val timeout = distanceKm
+            distanceKm < 1.5 -> TimeUnit.MINUTES.toMillis(10)
+            distanceKm >= 1.5 -> { val timeout = distanceKm
                 TimeUnit.MINUTES.toMillis(timeout.toLong())}
             else -> TimeUnit.HOURS.toMillis(1) // Bardzo daleko, sprawdzaj rzadziej
         }

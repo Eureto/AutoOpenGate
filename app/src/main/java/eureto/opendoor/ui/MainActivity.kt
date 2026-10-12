@@ -289,6 +289,9 @@ class MainActivity : AppCompatActivity() {
                 if (response.error == 0 && response.data != null && !response.data.thingList.isNullOrEmpty()) {
                     // if succesfully fetched devics from server crate list
 
+
+
+                    // TODO: jak nie możesz pobrać listy urządzeń to zostaw te co były zapamiętane w liście (zapisz liste urządzeń i aktualizuj jak się zmieni) 
                     deviceList = response.data.thingList.mapNotNull { it.itemData }
 
                     val adapterData = mutableListOf("Wybierz urządzenie")
