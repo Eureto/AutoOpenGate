@@ -34,8 +34,8 @@ class AppPreferences(private val context: Context) {
         )
     }
 
-    private val CLIENT_ID = BuildConfig.CLIENT_ID
-    private val CLIENT_SECRET = BuildConfig.CLIENT_SECRET
+    private val CLIENT_ID = BuildConfig.EWELINK_CLIENT_ID
+    private val CLIENT_SECRET = BuildConfig.EWELINK_CLIENT_SECRET
     // Replace with your actual redirect URI
     private val REDIRECT_URI = "euretoapp://oauth2callback" // Must be the same as in AndroidManifest.xml
 
