@@ -20,6 +20,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -33,6 +34,8 @@ import kotlinx.coroutines.launch
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import eureto.opendoor.logging.MyLog
 import eureto.opendoor.network.EwelinkDevices
+import eureto.opendoor.ui.screens.MainScreen
+import eureto.opendoor.ui.theme.OpenDoorTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -91,8 +94,22 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
+        //setContentView(binding.root)
+        setContent {
+            OpenDoorTheme {
+                MainScreen(
+                    onWybierzUrzadzenieClicked = {
+                        // Kod Kotlin w MainActivity, np. otwarcie nowej aktywności
+                        val intent = Intent(this, SelectBluetoothDeviceActivity::class.java)
+                        startActivity(intent)
+                    },
+                    onWlaczUrzadzenieToggled = { newState ->
+                        // Kod wysyłający zapytanie do API Ewelink
+                        Log.d("TAG", "Zmieniono stan na: $newState")
+                    }
+                )
+            }
+        }
         appPreferences = EwelinkApiClient.getAppPreferences()
         ewelinkApiClient = EwelinkApiClient
 
