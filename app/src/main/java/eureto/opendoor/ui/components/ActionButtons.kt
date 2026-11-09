@@ -49,11 +49,16 @@ fun ActionButtonWithInfoBlock(
             onClick = onClick,
             modifier = Modifier
                 .weight(1f)
-                .height(48.dp),
+                .height(52.dp),
             colors = ButtonDefaults.buttonColors(containerColor = BlazeOrange),
-            shape = RoundedCornerShape(24.dp)
+            shape = RoundedCornerShape(26.dp)
         ) {
-            Text(text = text, color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text(
+                text = text,
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
 
         Spacer(modifier = Modifier.width(8.dp))
@@ -78,17 +83,17 @@ fun PillButtonBlock(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(50.dp)
-            .shadow(2.dp, RoundedCornerShape(25.dp))
+            .height(56.dp)
+            .shadow(2.dp, RoundedCornerShape(28.dp))
             .clickable { onClick() },
-        shape = RoundedCornerShape(25.dp),
+        shape = RoundedCornerShape(28.dp),
         color = CardBg,
         border = BorderStroke(1.dp, Color(0xFFD4E157)) // Jasnozielona ramka
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = text,
-                fontSize = 16.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = JetBlack
             )
@@ -105,8 +110,8 @@ fun ManualSwitchBlock(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(50.dp)
-            .clip(RoundedCornerShape(25.dp))
+            .height(56.dp)
+            .clip(RoundedCornerShape(28.dp))
             .background(BlazeOrange)
             .clickable { onToggle(!isOn) }, // Kliknięcie odwraca stan
         contentAlignment = Alignment.CenterStart
@@ -120,9 +125,9 @@ fun ManualSwitchBlock(
             // Suwak / Gałka
             Box(
                 modifier = Modifier
-                    .width(65.dp)
-                    .height(34.dp)
-                    .clip(RoundedCornerShape(17.dp))
+                    .width(68.dp)
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(19.dp))
                     .background(Color(0xFFFFAB91))
             )
 
@@ -131,6 +136,7 @@ fun ManualSwitchBlock(
             Text(
                 text = if (isOn) "Wyłącz urządzenie" else "Włącz urządzenie",
                 color = Color.White,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
         }
