@@ -1,11 +1,6 @@
 package eureto.opendoor.ui
 
-import android.R.attr.fontFamily
-import eureto.opendoor.R
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -14,8 +9,6 @@ import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
 import android.view.View
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -23,31 +16,33 @@ import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import eureto.opendoor.R
 import eureto.opendoor.data.AppPreferences
-import eureto.opendoor.databinding.ActivityMainBinding
 import eureto.opendoor.location.LocationMonitoringService
-import eureto.opendoor.network.EwelinkApiClient
-import eureto.opendoor.network.model.Device
-import kotlinx.coroutines.launch
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import eureto.opendoor.logging.MyLog
+import eureto.opendoor.network.EwelinkApiClient
 import eureto.opendoor.network.EwelinkDevices
+import eureto.opendoor.network.model.Device
 import eureto.opendoor.ui.screens.MainScreen
 import eureto.opendoor.ui.theme.OpenDoorTheme
-import java.text.SimpleDateFormat
-import java.util.Date
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private val logFileName: String = "log.txt"
-    private lateinit var binding: ActivityMainBinding
     private lateinit var appPreferences: AppPreferences
     private lateinit var ewelinkApiClient: EwelinkApiClient
-    private var deviceList: List<Device> = emptyList()
-    private var selectedDeviceId: String? = null
 
+    private var deviceListState by mutableStateOf<List<Device>>(emptyList())
+    private var selectedDeviceIdState by mutableStateOf<String?>(null)
+    private var selectedDeviceNameState by mutableStateOf("Brak")
+    private var isDeviceOnState by mutableStateOf(false)
+    private var isMonitoringActiveState by mutableStateOf(false)
 
     // Launcher do prośby o uprawnienia do lokalizacji
     private val requestLocationPermissions = registerForActivityResult(
@@ -75,7 +70,6 @@ class MainActivity : AppCompatActivity() {
                 // Rzadki przypadek, ale warto obsłużyć
                 Toast.makeText(this, "Nie można otworzyć ustawień aplikacji.", Toast.LENGTH_SHORT).show()
             }
-            binding.btnStartMonitoring.isEnabled = false
         }
     }
 
@@ -93,25 +87,67 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        //setContentView(binding.root)
+
+        appPreferences = EwelinkApiClient.getAppPreferences()
+        ewelinkApiClient = EwelinkApiClient
+
+        // Domyślne wartości z appPreferences
+        val savedId = appPreferences.getSelectedDeviceId()
+        val savedName = appPreferences.getSelectedDeviceName()
+        if (!savedId.isNullOrEmpty() && !savedName.isNullOrEmpty()) {
+            selectedDeviceIdState = savedId
+            selectedDeviceNameState = savedName
+        }
+
         setContent {
             OpenDoorTheme {
                 MainScreen(
-                    onWybierzUrzadzenieClicked = {
-                        // Kod Kotlin w MainActivity, np. otwarcie nowej aktywności
+                    selectedDeviceName = selectedDeviceNameState,
+                    isDeviceOn = isDeviceOnState,
+                    isMonitoringActive = isMonitoringActiveState,
+                    deviceList = deviceListState,
+                    onDeviceSelected = { selectedDevice ->
+                        selectedDeviceIdState = selectedDevice.deviceid
+                        selectedDeviceNameState = selectedDevice.name
+                        appPreferences.saveSelectedDevice(selectedDevice.deviceid, selectedDevice.name)
+                        isDeviceOnState = (selectedDevice.params.switch == "on")
+                        Toast.makeText(this, "Wybrano: ${selectedDevice.name}", Toast.LENGTH_SHORT).show()
+                    },
+                    onSelectBluetoothClicked = {
                         val intent = Intent(this, SelectBluetoothDeviceActivity::class.java)
                         startActivity(intent)
                     },
-                    onWlaczUrzadzenieToggled = { newState ->
-                        // Kod wysyłający zapytanie do API Ewelink
-                        Log.d("TAG", "Zmieniono stan na: $newState")
+                    onToggleDeviceClicked = { newState ->
+                        selectedDeviceIdState?.let { id ->
+                            val switchValue = if (newState) "on" else "off"
+                            EwelinkDevices.toggleDevice(id, switchValue)
+                            isDeviceOnState = newState
+                        } ?: Toast.makeText(this, "Najpierw wybierz urządzenie z listy.", Toast.LENGTH_SHORT).show()
+                    },
+                    onToggleMonitoringClicked = {
+                        if (isMonitoringActiveState) {
+                            stopLocationMonitoringService()
+                        } else {
+                            checkAndStartLocationMonitoring()
+                        }
+                    },
+                    onOpenMapClicked = {
+                        val intent = Intent(this, MapActivity::class.java)
+                        startActivity(intent)
+                    },
+                    onShowLogsClicked = {
+                        readLogMessages()
+                    },
+                    onLogoutClicked = {
+                        appPreferences.clearLoginData()
+                        stopLocationMonitoringService()
+                        val intent = Intent(this, LoginActivity::class.java)
+                        startActivity(intent)
+                        finish()
                     }
                 )
             }
         }
-        appPreferences = EwelinkApiClient.getAppPreferences()
-        ewelinkApiClient = EwelinkApiClient
 
         // Sprawdź uprawnienia do powiadomień (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -120,100 +156,108 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-
         MyLog.addLogMessageIntoFile(this, "MainActivity: onCreate called")
-        setupUI()
         fetchDevices()
     }
 
     override fun onResume() {
         super.onResume()
-        // Odśwież status monitorowania po powrocie z MapActivity
         updateMonitoringStatusUI()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-    }
+    private fun fetchDevices() {
+        MyLog.addLogMessageIntoFile(this, "MainActivity fetchDevices called")
+        lifecycleScope.launch {
+            try {
+                val apiService = ewelinkApiClient.createApiService()
+                val response = apiService.getDevices()
 
-    private fun setupUI() {
-        binding.btnLogout.setOnClickListener {
-            appPreferences.clearLoginData()
-            stopLocationMonitoringService() // Zatrzymaj usługę lokalizacji
-            val intent = Intent(this, LoginActivity::class.java)
-            startActivity(intent)
-            finish()
-        }
+                if (response.error == 0 && response.data != null && !response.data.thingList.isNullOrEmpty()) {
+                    val fetchedList = response.data.thingList.mapNotNull { it.itemData }
+                    deviceListState = fetchedList
 
-        binding.btnOpenBluetoothDeviceSelect.setOnClickListener{
-            val intent = Intent(this, SelectBluetoothDeviceActivity::class.java)
-            startActivity(intent)
-        }
+                    Log.d("MainActivity", "Pobrano urządzenia: ${fetchedList.size}")
+                    MyLog.addLogMessageIntoFile(this@MainActivity, "Pobrano urządzenia: ${fetchedList.size}")
 
-        binding.spinnerDevices.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (position > 0) { // Omiń "Wybierz urządzenie"
-                    val selectedDevice = deviceList[position - 1] // -1 bo "Wybierz urządzenie" jest na poz. 0
-                    selectedDeviceId = selectedDevice.deviceid
-                    appPreferences.saveSelectedDevice(selectedDevice.deviceid, selectedDevice.name)
-                    binding.btnToggleDevice.isEnabled = true
-                    binding.tvSelectedDevice.text = "Wybrane urządzenie: ${selectedDevice.name}"
+                    selectedDeviceIdState?.let { id ->
+                        val currentDevice = fetchedList.find { it.deviceid == id }
+                        currentDevice?.let { device ->
+                            isDeviceOnState = (device.params.switch == "on")
+                        }
+                    }
                 } else {
-                    selectedDeviceId = null
-                    appPreferences.saveSelectedDevice("", "") // Wyczyść wybrane urządzenie
-                    binding.btnToggleDevice.isEnabled = false
-                    binding.tvSelectedDevice.text = "Wybrane urządzenie: Brak"
+                    Toast.makeText(this@MainActivity, "Błąd pobierania urządzeń: ${response.msg ?: "Brak danych"}", Toast.LENGTH_LONG).show()
                 }
-                updateMonitoringButtons()
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Błąd podczas pobierania urządzeń: ${e.message}", e)
             }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+    }
 
-        binding.btnToggleDevice.setOnClickListener {
-            selectedDeviceId?.let { id ->
-                val currentSwitchState = binding.btnToggleDevice.text.toString()
-                val newState = if (currentSwitchState == "Włącz") "on" else "off"
-                EwelinkDevices.toggleDevice(id, newState)
-            } ?: Toast.makeText(this, "Wybierz urządzenie do sterowania.", Toast.LENGTH_SHORT).show()
-        }
+    private fun checkAndStartLocationMonitoring() {
+        val selectedId = appPreferences.getSelectedDeviceId()
+        val polygonJson = appPreferences.getPolygonCoordinates()
 
-        binding.btnOpenMap.setOnClickListener {
-            val intent = Intent(this, MapActivity::class.java)
-            startActivity(intent)
-        }
-
-        binding.btnStartMonitoring.setOnClickListener {
-            requestLocationPermissions() // each time when user starts monitoring firstly check if permissions are given then start monitoring
-        }
-
-        binding.btnStopMonitoring.setOnClickListener {
-            stopLocationMonitoringService()
+        if (selectedId.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
+            Toast.makeText(this, "Wybierz urządzenie i zaznacz obszar na mapie przed rozpoczęciem monitorowania.", Toast.LENGTH_LONG).show()
             updateMonitoringStatusUI()
-        }
-        binding.btnShowLogMessages.setOnClickListener {
-            readLogMessages()
+            return
         }
 
+        val hasFineLocation = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasBackgroundLocation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+        if (!hasFineLocation || !hasBackgroundLocation) {
+            Toast.makeText(this, "Brak wymaganych uprawnień lokalizacji.", Toast.LENGTH_LONG).show()
+            requestLocationPermissions()
+            return
+        }
 
-        // Ustaw domyślne wartości lub pobierz z SharedPreferences
-        val savedDeviceId = appPreferences.getSelectedDeviceId()
-        val savedDeviceName = appPreferences.getSelectedDeviceName()
-        if (!savedDeviceId.isNullOrEmpty() && !savedDeviceName.isNullOrEmpty()) {
-            selectedDeviceId = savedDeviceId
-            binding.tvSelectedDevice.text = "Wybrane urządzenie: $savedDeviceName"
-            binding.btnToggleDevice.isEnabled = true
-        }
-        else {
-            binding.tvSelectedDevice.text = "Wybrane urządzenie: Brak"
-            binding.btnToggleDevice.isEnabled = false
-        }
-        updateMonitoringButtons()
+        val serviceIntent = Intent(this, LocationMonitoringService::class.java)
+        ContextCompat.startForegroundService(this, serviceIntent)
+        MyLog.addLogMessageIntoFile(this, "Uruchomiono monitorowanie lokalizacji")
+        Toast.makeText(this, "Rozpoczęto monitorowanie lokalizacji.", Toast.LENGTH_SHORT).show()
         updateMonitoringStatusUI()
     }
 
+    private fun stopLocationMonitoringService() {
+        val serviceIntent = Intent(this, LocationMonitoringService::class.java)
+        stopService(serviceIntent)
+        Toast.makeText(this, "Zatrzymano monitorowanie lokalizacji.", Toast.LENGTH_SHORT).show()
+        updateMonitoringStatusUI()
+    }
 
-    private fun readLogMessages(){
-        var log: String = try {
+    private fun updateMonitoringStatusUI() {
+        isMonitoringActiveState = isServiceRunning(LocationMonitoringService::class.java)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun isServiceRunning(serviceClass: Class<*>): Boolean {
+        val manager = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+        for (service in manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.name == service.service.className) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun requestLocationPermissions() {
+        MyLog.addLogMessageIntoFile(this, "zapytanie o uprawnienia do lokalizacji")
+        val permissionsToRequest = mutableListOf(
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            permissionsToRequest.add(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        }
+        requestLocationPermissions.launch(permissionsToRequest.toTypedArray())
+    }
+
+    private fun readLogMessages() {
+        val log: String = try {
             this.openFileInput(logFileName).bufferedReader().useLines { lines ->
                 lines.joinToString("\n")
             }
@@ -221,9 +265,7 @@ class MainActivity : AppCompatActivity() {
             "Brak logów lub błąd odczytu."
         }
 
-        // Create the BottomSheetDialog
         val bottomSheetDialog = com.google.android.material.bottomsheet.BottomSheetDialog(this)
-
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 60)
@@ -232,7 +274,6 @@ class MainActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
-
         }
 
         val handle = View(this).apply {
@@ -240,7 +281,7 @@ class MainActivity : AppCompatActivity() {
             params.setMargins(0, 0, 0, 40)
             params.gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = params
-            setBackgroundResource(android.R.drawable.button_onoff_indicator_off) // Generic grey pill shape
+            setBackgroundResource(android.R.drawable.button_onoff_indicator_off)
             alpha = 0.5f
         }
         layout.addView(handle)
@@ -256,7 +297,6 @@ class MainActivity : AppCompatActivity() {
         val scrollView = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                //LinearLayout.LayoutParams.WRAP_CONTENT
                 0,
                 1.0f
             )
@@ -294,150 +334,5 @@ class MainActivity : AppCompatActivity() {
         }
 
         bottomSheetDialog.show()
-    }
-
-    private fun fetchDevices() {
-        MyLog.addLogMessageIntoFile(this, "MainActivity fetchDevices called")
-        lifecycleScope.launch {
-            try {
-                val apiService = ewelinkApiClient.createApiService()
-                val response = apiService.getDevices()
-
-                if (response.error == 0 && response.data != null && !response.data.thingList.isNullOrEmpty()) {
-                    // if succesfully fetched devics from server crate list
-
-
-
-                    // TODO: jak nie możesz pobrać listy urządzeń to zostaw te co były zapamiętane w liście (zapisz liste urządzeń i aktualizuj jak się zmieni) 
-                    deviceList = response.data.thingList.mapNotNull { it.itemData }
-
-                    val adapterData = mutableListOf("Wybierz urządzenie")
-                    adapterData.addAll(deviceList.map { "${it.name} (${it.deviceid})" })
-
-                    val adapter = ArrayAdapter(this@MainActivity,
-                        android.R.layout.simple_spinner_item, adapterData)
-                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                    binding.spinnerDevices.adapter = adapter
-
-                    val savedDeviceId = appPreferences.getSelectedDeviceId()
-                    val savedDevicePosition = deviceList.indexOfFirst { it.deviceid == savedDeviceId }
-                    if (savedDevicePosition != -1) {
-                        binding.spinnerDevices.setSelection(savedDevicePosition + 1) // +1 bo "Wybierz urządzenie"
-                    }
-                    Log.d("MainActivity", "Pobrano urządzenia: ${deviceList.size}")
-                    MyLog.addLogMessageIntoFile(this@MainActivity, "Pobrano urządzenia: ${deviceList.size}")
-
-                    selectedDeviceId?.let { id ->
-                        val currentDevice = deviceList.find { it.deviceid == id }
-                        currentDevice?.let { device ->
-                            val switchState = device.params.switch
-                            if (switchState == "on") {
-                                binding.btnToggleDevice.text = "Wyłącz"
-                                binding.tvDeviceCurrentStatus.text = "Status: Włączone"
-                            } else if (switchState == "off") {
-                                binding.btnToggleDevice.text = "Włącz"
-                                binding.tvDeviceCurrentStatus.text = "Status: Wyłączone"
-                            }
-                        }
-                    }
-
-                } else {
-                    Toast.makeText(this@MainActivity, "Błąd pobierania urządzeń: ${response.msg ?: "Brak danych"} (Kod: ${response.error})", Toast.LENGTH_LONG).show()
-                    Log.e("MainActivity", "Błąd pobierania urządzeń: ${response.msg ?: "Brak danych"} (Kod: ${response.error})")
-                    deviceList = emptyList() // Upewnij się, że lista jest pusta w przypadku błędu
-                    binding.spinnerDevices.adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, listOf("Brak urządzeń"))
-                }
-            } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, "Błąd sieci: ${e.message}", Toast.LENGTH_LONG).show()
-                Log.e("MainActivity", "Błąd podczas pobierania urządzeń: ${e.message}", e)
-                deviceList = emptyList() // Upewnij się, że lista jest pusta w przypadku błędu
-                binding.spinnerDevices.adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, listOf("Brak urządzeń"))
-            }
-        }
-    }
-
-    private fun requestLocationPermissions() {
-        MyLog.addLogMessageIntoFile(this, "zapytanie o uprawnienia do lokalizacji")
-        val permissionsToRequest = mutableListOf(
-            android.Manifest.permission.ACCESS_FINE_LOCATION
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            permissionsToRequest.add(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-        }
-        requestLocationPermissions.launch(permissionsToRequest.toTypedArray())
-    }
-
-    private fun checkAndStartLocationMonitoring() {
-        val selectedId = appPreferences.getSelectedDeviceId()
-        val polygonJson = appPreferences.getPolygonCoordinates()
-        val polygonCenter = appPreferences.getPolygonCenter()
-
-        // Check if device and polygon are selected
-        if (selectedId.isNullOrEmpty() || polygonJson.isNullOrEmpty()) {
-            Toast.makeText(this, "Wybierz urządzenie i zaznacz obszar na mapie przed rozpoczęciem monitorowania.", Toast.LENGTH_LONG).show()
-            updateMonitoringButtons()
-            return
-        }
-
-        // check location permission before starting monitoring
-        val hasFineLocation = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val hasBackgroundLocation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true // for older versions there is no need to check background location permission
-        }
-        if (!hasFineLocation || !hasBackgroundLocation) {
-            Toast.makeText(this, "Brak wymaganych uprawnień lokalizacji.", Toast.LENGTH_LONG).show()
-            requestLocationPermissions()
-            return
-        }
-
-        // Starts the monitoring service
-        val serviceIntent = Intent(this, LocationMonitoringService::class.java)
-        // This intent servers as bridge to the service passing the selected device ID and polygon JSON
-//        serviceIntent.putExtra("deviceId", selectedId)
-//        serviceIntent.putExtra("polygonJson", polygonJson)
-//        serviceIntent.putExtra("polygonCenter", polygonCenter)
-
-        ContextCompat.startForegroundService(this, serviceIntent)
-        MyLog.addLogMessageIntoFile(this, "Uruchomionono monitorowanie lokalizacji")
-        Toast.makeText(this, "Rozpoczęto monitorowanie lokalizacji.", Toast.LENGTH_SHORT).show()
-        updateMonitoringStatusUI()
-    }
-
-    private fun stopLocationMonitoringService() {
-        val serviceIntent = Intent(this, LocationMonitoringService::class.java)
-        stopService(serviceIntent)
-        Toast.makeText(this, "Zatrzymano monitorowanie lokalizacji.", Toast.LENGTH_SHORT).show()
-        updateMonitoringStatusUI()
-    }
-
-
-    // Updates the button states based on selected device and polygon
-    private fun updateMonitoringButtons() {
-        val isDeviceSelected = !appPreferences.getSelectedDeviceId().isNullOrEmpty()
-        val isPolygonSet = !appPreferences.getPolygonCoordinates().isNullOrEmpty()
-
-        binding.btnStartMonitoring.isEnabled = isDeviceSelected && isPolygonSet
-    }
-
-    private fun updateMonitoringStatusUI() {
-        // Check if service is running and update the UI accordingly
-        val isMonitoringActive = isServiceRunning(LocationMonitoringService::class.java)
-        binding.tvMonitoringStatus.text = "Status monitorowania: ${if (isMonitoringActive) "Aktywne" else "Nieaktywne"}"
-        binding.btnStartMonitoring.visibility = if (isMonitoringActive) View.GONE else View.VISIBLE
-        binding.btnStopMonitoring.visibility = if (isMonitoringActive) View.VISIBLE else View.GONE
-        updateMonitoringButtons() // Odśwież stan przycisków
-    }
-
-    @Suppress("DEPRECATION")
-    private fun isServiceRunning(serviceClass: Class<*>): Boolean {
-        val manager = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
-        for (service in manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.name == service.service.className) {
-                return true
-            }
-        }
-        return false
     }
 }

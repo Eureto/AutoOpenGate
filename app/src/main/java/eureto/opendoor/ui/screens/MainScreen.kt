@@ -1,7 +1,6 @@
 package eureto.opendoor.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,10 +9,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,26 +27,144 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.rotationMatrix
+import eureto.opendoor.network.model.Device
 import eureto.opendoor.ui.components.*
 import eureto.opendoor.ui.theme.*
 
-
 @Composable
 fun MainScreen(
-    onWybierzUrzadzenieClicked: () -> Unit,
-    onWlaczUrzadzenieToggled: (Boolean) -> Unit
+    selectedDeviceName: String = "Brak urządzenia",
+    isDeviceOn: Boolean = false,
+    isMonitoringActive: Boolean = false,
+    deviceList: List<Device> = emptyList(),
+    onDeviceSelected: (Device) -> Unit = {},
+    onSelectBluetoothClicked: () -> Unit = {},
+    onToggleDeviceClicked: (Boolean) -> Unit = {},
+    onToggleMonitoringClicked: () -> Unit = {},
+    onOpenMapClicked: () -> Unit = {},
+    onShowLogsClicked: () -> Unit = {},
+    onLogoutClicked: () -> Unit = {}
 ) {
+    var showMenuDialog by remember { mutableStateOf(false) }
+    var showDeviceDialog by remember { mutableStateOf(false) }
+
     MainScreenContainer {
-        HeaderBlock(titleText = "Sezamie, otwórz się!", deviceName = "Mój Garaż", onMenuClick = {})
+        HeaderBlock(
+            titleText = "Sezamie, otwórz się!",
+            deviceName = if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak urządzenia",
+            isDeviceOn = isDeviceOn,
+            onMenuClick = { showMenuDialog = true }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         ExpandableCardBlock(title = "Konfiguracja") {
             ActionButtonWithInfoBlock(
-                text = "Wybierz urządzenie",
-                onClick = onWybierzUrzadzenieClicked, // Przekazujesz callback wyżej
-                onInfoClick = { /* Akcja Info */ }
+                text = "Wybierz urządzenie (${if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak"})",
+                onClick = { showDeviceDialog = true },
+                onInfoClick = { }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            ActionButtonWithInfoBlock(
+                text = "Urządzenia Bluetooth",
+                onClick = onSelectBluetoothClicked,
+                onInfoClick = { }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            ActionButtonWithInfoBlock(
+                text = "Mapa i obszar (Geofencing)",
+                onClick = onOpenMapClicked,
+                onInfoClick = { }
             )
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        PillButtonBlock(
+            text = if (isMonitoringActive) "Zatrzymaj automatyzacje" else "Rozpocznij automatyzacje",
+            onClick = onToggleMonitoringClicked
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        ManualSwitchBlock(
+            isOn = isDeviceOn,
+            onToggle = onToggleDeviceClicked
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+
+    // Dialog menu burgera
+    if (showMenuDialog) {
+        AlertDialog(
+            onDismissRequest = { showMenuDialog = false },
+            title = { Text("Menu opcji", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    TextButton(
+                        onClick = {
+                            showMenuDialog = false
+                            onShowLogsClicked()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("📋 Logi aplikacji")
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    TextButton(
+                        onClick = {
+                            showMenuDialog = false
+                            onLogoutClicked()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("🚪 Wyloguj się", color = Color.Red)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showMenuDialog = false }) {
+                    Text("Zamknij")
+                }
+            }
+        )
+    }
+
+    // Dialog wyboru urządzenia Ewelink
+    if (showDeviceDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeviceDialog = false },
+            title = { Text("Wybierz urządzenie", fontWeight = FontWeight.Bold) },
+            text = {
+                if (deviceList.isEmpty()) {
+                    Text("Brak pobranych urządzeń Ewelink lub trwa ich pobieranie...")
+                } else {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        deviceList.forEach { device ->
+                            TextButton(
+                                onClick = {
+                                    onDeviceSelected(device)
+                                    showDeviceDialog = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "${device.name} (${device.deviceid})",
+                                    color = JetBlack,
+                                    fontWeight = if (device.name == selectedDeviceName) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDeviceDialog = false }) {
+                    Text("Anuluj")
+                }
+            }
+        )
     }
 }
 
@@ -73,46 +190,31 @@ fun MainScreenContainer(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp)
-                .verticalScroll(rememberScrollState()), // Umożliwia przewijanie ekranu w pionie
+                .padding(bottom = 70.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            HeaderBlock("Witaj Mateusz", "urządzenie1", {})
-            Spacer(modifier = Modifier.height(10.dp))
-            ExpandableCardBlock("Konfiguracja", {
-                ActionButtonWithInfoBlock("Wybierz urządzenie", {},{})
-                Spacer(modifier = Modifier.height(10.dp))
-                ActionButtonWithInfoBlock("Wybierz urządzenie", {},{})
-                Spacer(modifier = Modifier.height(10.dp))
-            })
-            Spacer(modifier = Modifier.height(10.dp))
-            PillButtonBlock("Uruchom automatyzacje", {})
-            Spacer(modifier = Modifier.height(10.dp))
-            ManualSwitchBlock(false, {})
-            Spacer(modifier = Modifier.height(10.dp))
-
-
+            content()
         }
 
-//        BottomNavigationBarBlock(
-//            currentPage = 1,
-//            totalPages = 5,
-//            onMinusClick = {},
-//            onPlusClick = {},
-//            modifier = Modifier.align(Alignment.BottomCenter)
-//        )
+        BottomNavigationBarBlock(
+            currentPage = 1,
+            totalPages = 5,
+            onMinusClick = {},
+            onPlusClick = {},
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
-
-// burger menu, powitanie, nazwa wybranego urządzenia, status urządzenia
 @Composable
 fun HeaderBlock(
     titleText: String,               // np. "Sezamie, otwórz się!"
     deviceName: String,              // np. "Moja Brama"
+    isDeviceOn: Boolean = false,
     onMenuClick: () -> Unit          // Co ma się stać po kliknięciu ikony menu
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Górny wiersz z menu i tytułem
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -125,7 +227,7 @@ fun HeaderBlock(
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f)) // Rozpychacz
+            Spacer(modifier = Modifier.weight(1f))
 
             Text(
                 text = titleText,
@@ -139,10 +241,10 @@ fun HeaderBlock(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Wiersz z nazwą urządzenia i ikonką żarówki
         Row(
-            modifier = Modifier.fillMaxWidth().
-            padding(start=10.dp, end=10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -152,18 +254,20 @@ fun HeaderBlock(
                 fontWeight = FontWeight.SemiBold
             )
 
-            // Ikona w okręgu (np. wskaźnik statusu)
+            val bgColor = if (isDeviceOn) Color(0xFFFFF9C4) else Color(0xFFE0E0E0)
+            val iconColor = if (isDeviceOn) Color(0xFFFBC02D) else Color.Gray
+
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFFFF9C4)),
+                    .background(bgColor),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Lightbulb,
                     contentDescription = null,
-                    tint = Color(0xFFFBC02D)
+                    tint = iconColor
                 )
             }
         }
@@ -212,7 +316,7 @@ fun ExpandableCardBlock(
             // Zawartość pokazywana tylko wtedy, gdy isExpanded == true (z płynną animacją)
             AnimatedVisibility(visible = isExpanded) {
                 Column(modifier = Modifier.padding(top = 12.dp)) {
-                    content() // Tutaj wstawiasz elementy wewnątrz karty
+                    content()
                 }
             }
         }
