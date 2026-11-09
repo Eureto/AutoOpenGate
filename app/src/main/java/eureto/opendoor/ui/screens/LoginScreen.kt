@@ -31,7 +31,7 @@ fun LoginScreen(
             modifier = Modifier.padding(bottom = 32.dp)
         ) {
             Image(
-                painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                painter = painterResource(id = R.drawable.ic_logo),
                 contentDescription = "Logo OpenDoor",
                 modifier = Modifier.size(100.dp)
             )

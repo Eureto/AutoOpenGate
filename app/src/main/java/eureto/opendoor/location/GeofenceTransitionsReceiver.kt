@@ -105,7 +105,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         if (context == null) return
 
         val builder = NotificationCompat.Builder(context, notificationChannelId)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("eWeLink Automatyka")
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

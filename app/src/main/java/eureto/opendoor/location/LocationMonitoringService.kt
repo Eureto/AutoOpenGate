@@ -727,12 +727,12 @@ class LocationMonitoringService : Service() {
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle("eWeLink Automatyka")
             .setContentText(message)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true) // Make notification non-swipable - does not work on android 15, on android 11 works well
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .addAction(R.drawable.ic_launcher_foreground, "Otwórz bramę", openGatePendingIntent)
-            .addAction(R.drawable.ic_launcher_foreground, "Zatrzymaj", stopServicePendingIntent)
+            .addAction(R.drawable.ic_notification, "Otwórz bramę", openGatePendingIntent)
+            .addAction(R.drawable.ic_notification, "Zatrzymaj", stopServicePendingIntent)
     }
 
     private fun updateMainNotification(message: String) {
@@ -766,7 +766,7 @@ class LocationMonitoringService : Service() {
 
         // Create new notification
         val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
