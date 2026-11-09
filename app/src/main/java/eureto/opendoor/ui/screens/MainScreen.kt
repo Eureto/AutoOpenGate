@@ -62,66 +62,70 @@ fun MainScreen(
         onShowLogsClicked = onShowLogsClicked,
         onLogoutClicked = onLogoutClicked
     ) {
-        MainScreenContent {
-            HeaderBlock(
-                titleText = if (username.isNotBlank()) "Witaj $username!" else "Sezamie, otwórz się!",
-                deviceName = if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak urządzenia",
-                isDeviceOn = isDeviceOn,
-                onMenuClick = {
-                    scope.launch { drawerState.open() }
+        MainScreenContent(
+            content = {
+                HeaderBlock(
+                    titleText = if (username.isNotBlank()) "Witaj $username!" else "Sezamie, otwórz się!",
+                    deviceName = if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak urządzenia",
+                    isDeviceOn = isDeviceOn,
+                    onMenuClick = {
+                        scope.launch { drawerState.open() }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                ExpandableCardBlock(title = "Konfiguracja") {
+                    ActionButtonWithInfoBlock(
+                        text = "Wybierz urządzenie (${if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak"})",
+                        onClick = { showDeviceDialog = true },
+                        onInfoClick = {
+                            infoDialogTitle = "Urządzenie Ewelink"
+                            infoDialogDesc =
+                                "Wybierz urządzenie Sonoff / Ewelink z listy pobranej z Twojego konta. To urządzenie będzie automatycznie sterowane po wejściu w wyznaczony obszar."
+                            infoDialogImage = null
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    ActionButtonWithInfoBlock(
+                        text = "Urządzenia Bluetooth",
+                        onClick = onSelectBluetoothClicked,
+                        onInfoClick = {
+                            infoDialogTitle = "Urządzenia Bluetooth"
+                            infoDialogDesc =
+                                "Możesz powiązać automatyzację z połączeniem Bluetooth (np. z zestawem głośnomówiącym w samochodzie). Brama otworzy się tylko wtedy, gdy Twój telefon jest połączony z wybranym autem."
+                            infoDialogImage = null
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    ActionButtonWithInfoBlock(
+                        text = "Mapa i obszar (Geofencing)",
+                        onClick = onOpenMapClicked,
+                        onInfoClick = {
+                            infoDialogTitle = "Konfiguracja obszaru (Geofence)"
+                            infoDialogDesc =
+                                "Zaznacz na mapie wielokąt wokół Twojego domu lub wjazdu. Przekroczenie tej granicy automatycznie wyśle sygnał do otwarcia bramy."
+                            infoDialogImage = eureto.opendoor.R.drawable.ic_launcher_foreground
+                        }
+                    )
                 }
-            )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            ExpandableCardBlock(title = "Konfiguracja") {
-                ActionButtonWithInfoBlock(
-                    text = "Wybierz urządzenie (${if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak"})",
-                    onClick = { showDeviceDialog = true },
-                    onInfoClick = {
-                        infoDialogTitle = "Urządzenie Ewelink"
-                        infoDialogDesc = "Wybierz urządzenie Sonoff / Ewelink z listy pobranej z Twojego konta. To urządzenie będzie automatycznie sterowane po wejściu w wyznaczony obszar."
-                        infoDialogImage = null
-                    }
+                PillButtonBlock(
+                    text = if (isMonitoringActive) "Zatrzymaj automatyzacje" else "Rozpocznij automatyzacje",
+                    onClick = onToggleMonitoringClicked
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                ActionButtonWithInfoBlock(
-                    text = "Urządzenia Bluetooth",
-                    onClick = onSelectBluetoothClicked,
-                    onInfoClick = {
-                        infoDialogTitle = "Urządzenia Bluetooth"
-                        infoDialogDesc = "Możesz powiązać automatyzację z połączeniem Bluetooth (np. z zestawem głośnomówiącym w samochodzie). Brama otworzy się tylko wtedy, gdy Twój telefon jest połączony z wybranym autem."
-                        infoDialogImage = null
-                    }
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                ActionButtonWithInfoBlock(
-                    text = "Mapa i obszar (Geofencing)",
-                    onClick = onOpenMapClicked,
-                    onInfoClick = {
-                        infoDialogTitle = "Konfiguracja obszaru (Geofence)"
-                        infoDialogDesc = "Zaznacz na mapie wielokąt wokół Twojego domu lub wjazdu. Przekroczenie tej granicy automatycznie wyśle sygnał do otwarcia bramy."
-                        infoDialogImage = eureto.opendoor.R.drawable.ic_launcher_foreground
-                    }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            },
+            bottomContent = {
+                ManualSwitchBlock(
+                    isOn = isDeviceOn,
+                    onToggle = onToggleDeviceClicked
                 )
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            PillButtonBlock(
-                text = if (isMonitoringActive) "Zatrzymaj automatyzacje" else "Rozpocznij automatyzacje",
-                onClick = onToggleMonitoringClicked
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            ManualSwitchBlock(
-                isOn = isDeviceOn,
-                onToggle = onToggleDeviceClicked
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-        }
+        )
     }
 
     // Okienko informacyjne (po kliknięciu ikony 'i')
@@ -185,7 +189,8 @@ fun MainScreen(
 @Preview
 @Composable
 fun MainScreenContent(
-    content: @Composable ColumnScope.() -> Unit = {}
+    content: @Composable () -> Unit = {},
+    bottomContent: @Composable () -> Unit = {}
 ) {
     // Gradient pionowy od bieli do jasnej żółci
     val gradientTla = Brush.linearGradient(
@@ -204,20 +209,29 @@ fun MainScreenContent(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 70.dp)
+                .padding(bottom = 140.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             content()
         }
 
-        BottomNavigationBarBlock(
-            currentPage = 1,
-            totalPages = 5,
-            onMinusClick = {},
-            onPlusClick = {},
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+        ) {
+            bottomContent()
+        }
+// Na ten moment funkcjonalnośc nie zaimplemenowana ale ui może zostać na przyszłość, nie odkomentywać!!!
+//        BottomNavigationBarBlock(
+//            currentPage = 1,
+//            totalPages = 5,
+//            onMinusClick = {},
+//            onPlusClick = {},
+//            modifier = Modifier.align(Alignment.BottomCenter)
+//        )
     }
 }
 

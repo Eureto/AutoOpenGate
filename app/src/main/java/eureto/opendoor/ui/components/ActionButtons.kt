@@ -1,16 +1,18 @@
 package eureto.opendoor.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -22,15 +24,19 @@ import androidx.compose.material3.SegmentedButtonDefaults.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eureto.opendoor.ui.theme.BlazeOrange
+import eureto.opendoor.ui.theme.BlueSlate
 import eureto.opendoor.ui.theme.CardBg
 import eureto.opendoor.ui.theme.JetBlack
 
@@ -101,44 +107,53 @@ fun PillButtonBlock(
     }
 }
 
-//Niestandardowy przycisk-suwak, który zmienia stan po kliknięciu.
+//Niestandardowy przycisk-suwak: gałka przesuwa się w prawo, gdy urządzenie jest włączone.
 @Composable
 fun ManualSwitchBlock(
     isOn: Boolean,
     onToggle: (Boolean) -> Unit // Zwraca nowy stan włączenia (true/false)
 ) {
+    // Kolor tła płynnie przechodzi między stanami zamiast przeskakiwać
+    val trackColor by animateColorAsState(
+        targetValue = if (isOn) BlazeOrange else BlueSlate,
+        label = "trackColor"
+    )
+
+    // -1f = gałka przy lewej krawędzi, 1f = przy prawej
+    val knobBias by animateFloatAsState(
+        targetValue = if (isOn) 1f else -1f,
+        label = "knobBias"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(100.dp)
             .clip(RoundedCornerShape(28.dp))
-            .background(BlazeOrange)
-            .clickable { onToggle(!isOn) }, // Kliknięcie odwraca stan
-        contentAlignment = Alignment.CenterStart
+            .background(trackColor)
+            .toggleable(
+                value = isOn,
+                onValueChange = onToggle, // Kliknięcie odwraca stan
+                role = Role.Switch
+            )
+            .padding(horizontal = 8.dp)
     ) {
-        Row(
+        Text(
+            text = if (isOn) "Wyłącz urządzenie" else "Włącz urządzenie",
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.Center)
+        )
+
+        // Suwak / Gałka
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Suwak / Gałka
-            Box(
-                modifier = Modifier
-                    .width(68.dp)
-                    .height(38.dp)
-                    .clip(RoundedCornerShape(19.dp))
-                    .background(Color(0xFFFFAB91))
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Text(
-                text = if (isOn) "Wyłącz urządzenie" else "Włącz urządzenie",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
+                .align(BiasAlignment(horizontalBias = knobBias, verticalBias = 0f))
+                .width(68.dp)
+                .height(80.dp)
+                .shadow(4.dp, RoundedCornerShape(20.dp))
+                .background(Color.White, RoundedCornerShape(20.dp))
+        )
     }
 }
