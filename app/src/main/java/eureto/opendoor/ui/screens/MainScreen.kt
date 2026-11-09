@@ -2,6 +2,7 @@ package eureto.opendoor.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -30,10 +31,12 @@ import androidx.compose.ui.unit.sp
 import eureto.opendoor.network.model.Device
 import eureto.opendoor.ui.components.*
 import eureto.opendoor.ui.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun MainScreen(
     selectedDeviceName: String = "Brak urządzenia",
+    username: String = "",
     isDeviceOn: Boolean = false,
     isMonitoringActive: Boolean = false,
     deviceList: List<Device> = emptyList(),
@@ -45,88 +48,92 @@ fun MainScreen(
     onShowLogsClicked: () -> Unit = {},
     onLogoutClicked: () -> Unit = {}
 ) {
-    var showMenuDialog by remember { mutableStateOf(false) }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     var showDeviceDialog by remember { mutableStateOf(false) }
 
-    MainScreenContainer {
-        HeaderBlock(
-            titleText = "Sezamie, otwórz się!",
-            deviceName = if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak urządzenia",
-            isDeviceOn = isDeviceOn,
-            onMenuClick = { showMenuDialog = true }
-        )
+    var infoDialogTitle by remember { mutableStateOf<String?>(null) }
+    var infoDialogDesc by remember { mutableStateOf<String?>(null) }
+    var infoDialogImage by remember { mutableStateOf<Any?>(null) }
 
-        Spacer(modifier = Modifier.height(16.dp))
+    AppDrawer(
+        drawerState = drawerState,
+        scope = scope,
+        onShowLogsClicked = onShowLogsClicked,
+        onLogoutClicked = onLogoutClicked
+    ) {
+        MainScreenContent {
+            HeaderBlock(
+                titleText = if (username.isNotBlank()) "Witaj $username!" else "Sezamie, otwórz się!",
+                deviceName = if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak urządzenia",
+                isDeviceOn = isDeviceOn,
+                onMenuClick = {
+                    scope.launch { drawerState.open() }
+                }
+            )
 
-        ExpandableCardBlock(title = "Konfiguracja") {
-            ActionButtonWithInfoBlock(
-                text = "Wybierz urządzenie (${if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak"})",
-                onClick = { showDeviceDialog = true },
-                onInfoClick = { }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            ExpandableCardBlock(title = "Konfiguracja") {
+                ActionButtonWithInfoBlock(
+                    text = "Wybierz urządzenie (${if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak"})",
+                    onClick = { showDeviceDialog = true },
+                    onInfoClick = {
+                        infoDialogTitle = "Urządzenie Ewelink"
+                        infoDialogDesc = "Wybierz urządzenie Sonoff / Ewelink z listy pobranej z Twojego konta. To urządzenie będzie automatycznie sterowane po wejściu w wyznaczony obszar."
+                        infoDialogImage = null
+                    }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                ActionButtonWithInfoBlock(
+                    text = "Urządzenia Bluetooth",
+                    onClick = onSelectBluetoothClicked,
+                    onInfoClick = {
+                        infoDialogTitle = "Urządzenia Bluetooth"
+                        infoDialogDesc = "Możesz powiązać automatyzację z połączeniem Bluetooth (np. z zestawem głośnomówiącym w samochodzie). Brama otworzy się tylko wtedy, gdy Twój telefon jest połączony z wybranym autem."
+                        infoDialogImage = null
+                    }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                ActionButtonWithInfoBlock(
+                    text = "Mapa i obszar (Geofencing)",
+                    onClick = onOpenMapClicked,
+                    onInfoClick = {
+                        infoDialogTitle = "Konfiguracja obszaru (Geofence)"
+                        infoDialogDesc = "Zaznacz na mapie wielokąt wokół Twojego domu lub wjazdu. Przekroczenie tej granicy automatycznie wyśle sygnał do otwarcia bramy."
+                        infoDialogImage = eureto.opendoor.R.drawable.ic_launcher_foreground
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            PillButtonBlock(
+                text = if (isMonitoringActive) "Zatrzymaj automatyzacje" else "Rozpocznij automatyzacje",
+                onClick = onToggleMonitoringClicked
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            ActionButtonWithInfoBlock(
-                text = "Urządzenia Bluetooth",
-                onClick = onSelectBluetoothClicked,
-                onInfoClick = { }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            ManualSwitchBlock(
+                isOn = isDeviceOn,
+                onToggle = onToggleDeviceClicked
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            ActionButtonWithInfoBlock(
-                text = "Mapa i obszar (Geofencing)",
-                onClick = onOpenMapClicked,
-                onInfoClick = { }
-            )
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        PillButtonBlock(
-            text = if (isMonitoringActive) "Zatrzymaj automatyzacje" else "Rozpocznij automatyzacje",
-            onClick = onToggleMonitoringClicked
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        ManualSwitchBlock(
-            isOn = isDeviceOn,
-            onToggle = onToggleDeviceClicked
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 
-    // Dialog menu burgera
-    if (showMenuDialog) {
-        AlertDialog(
-            onDismissRequest = { showMenuDialog = false },
-            title = { Text("Menu opcji", fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    TextButton(
-                        onClick = {
-                            showMenuDialog = false
-                            onShowLogsClicked()
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("📋 Logi aplikacji")
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    TextButton(
-                        onClick = {
-                            showMenuDialog = false
-                            onLogoutClicked()
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("🚪 Wyloguj się", color = Color.Red)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showMenuDialog = false }) {
-                    Text("Zamknij")
-                }
+    // Okienko informacyjne (po kliknięciu ikony 'i')
+    if (infoDialogTitle != null && infoDialogDesc != null) {
+        InfoDialog(
+            title = infoDialogTitle!!,
+            description = infoDialogDesc!!,
+            imageOrGifResId = infoDialogImage,
+            onDismiss = {
+                infoDialogTitle = null
+                infoDialogDesc = null
+                infoDialogImage = null
             }
         )
     }
@@ -135,19 +142,26 @@ fun MainScreen(
     if (showDeviceDialog) {
         AlertDialog(
             onDismissRequest = { showDeviceDialog = false },
-            title = { Text("Wybierz urządzenie", fontWeight = FontWeight.Bold) },
+            title = { Text("Wybierz urządzenie", color = JetBlack, fontWeight = FontWeight.Bold) },
             text = {
                 if (deviceList.isEmpty()) {
-                    Text("Brak pobranych urządzeń Ewelink lub trwa ich pobieranie...")
+                    Text("Brak pobranych urządzeń Ewelink lub trwa ich pobieranie...", color = JetBlack)
                 } else {
-                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Column(
+                        modifier = Modifier
+                            .verticalScroll(rememberScrollState())
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         deviceList.forEach { device ->
                             TextButton(
                                 onClick = {
                                     onDeviceSelected(device)
                                     showDeviceDialog = false
                                 },
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, SilverColor, RoundedCornerShape(8.dp))
                             ) {
                                 Text(
                                     text = "${device.name} (${device.deviceid})",
@@ -161,7 +175,7 @@ fun MainScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showDeviceDialog = false }) {
-                    Text("Anuluj")
+                    Text("Anuluj", color = JetBlack)
                 }
             }
         )
@@ -170,7 +184,7 @@ fun MainScreen(
 
 @Preview
 @Composable
-fun MainScreenContainer(
+fun MainScreenContent(
     content: @Composable ColumnScope.() -> Unit = {}
 ) {
     // Gradient pionowy od bieli do jasnej żółci
@@ -231,7 +245,7 @@ fun HeaderBlock(
 
             Text(
                 text = titleText,
-                fontSize = 20.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = JetBlack
             )
@@ -250,7 +264,8 @@ fun HeaderBlock(
         ) {
             Text(
                 text = deviceName,
-                fontSize = 16.sp,
+                color = JetBlack,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold
             )
 
@@ -259,7 +274,7 @@ fun HeaderBlock(
 
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .background(bgColor),
                 contentAlignment = Alignment.Center
@@ -300,7 +315,8 @@ fun ExpandableCardBlock(
             ) {
                 Text(
                     text = title,
-                    fontSize = 18.sp,
+                    color = JetBlack,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
 
@@ -309,7 +325,8 @@ fun ExpandableCardBlock(
                 // Zmieniająca się ikona strzałki w górę / w dół
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null
+                    contentDescription = null,
+                    tint = JetBlack
                 )
             }
 
