@@ -25,6 +25,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -243,11 +244,11 @@ fun HeaderBlock(
     onMenuClick: () -> Unit          // Co ma się stać po kliknięciu ikony menu
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onMenuClick) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            IconButton(
+                onClick = onMenuClick,
+                modifier = Modifier.align(Alignment.CenterStart)
+            ) {
                 Icon(
                     imageVector = Icons.Default.Menu,
                     contentDescription = "Otwórz Menu",
@@ -255,16 +256,16 @@ fun HeaderBlock(
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-
             Text(
                 text = titleText,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = JetBlack
+                color = JetBlack,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 48.dp)
             )
-
-            Spacer(modifier = Modifier.weight(1f))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
