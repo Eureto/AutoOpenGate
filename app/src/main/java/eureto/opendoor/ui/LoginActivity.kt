@@ -8,7 +8,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import eureto.opendoor.data.AppPreferences
-import eureto.opendoor.databinding.ActivityLoginBinding
 import eureto.opendoor.network.EwelinkApiClient
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -18,24 +17,30 @@ import java.nio.charset.StandardCharsets
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import android.util.Base64
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import eureto.opendoor.network.model.AccessTokenRequestBody
+import eureto.opendoor.ui.screens.LoginScreen
+import eureto.opendoor.ui.theme.OpenDoorTheme
 import com.google.gson.Gson
 
 class LoginActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityLoginBinding
     private lateinit var appPreferences: AppPreferences
     private val gson = Gson()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        binding = ActivityLoginBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
         appPreferences = EwelinkApiClient.getAppPreferences()
 
-        binding.btnLogin.setOnClickListener {
-            startOAuthLogin()
+        setContent {
+            OpenDoorTheme {
+                LoginScreen(
+                    onLoginClick = { startOAuthLogin() }
+                )
+            }
         }
 
         // Check if user is already signed in
