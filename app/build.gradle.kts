@@ -96,6 +96,10 @@ dependencies {
     implementation("commons-codec:commons-codec:1.15") // Dla starszych API niż 26, alternatywnie android.util.Base64
 
 
+    // Coil (dla obsługi obrazów i animowanych GIF-ów w Compose)
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("io.coil-kt:coil-gif:2.6.0")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
