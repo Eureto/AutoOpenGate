@@ -4,86 +4,70 @@ import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.view.View
-import android.view.ViewGroup
-import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import eureto.opendoor.data.AppPreferences
-import eureto.opendoor.databinding.ActivitySelectBluetoothCarAudioBinding
 import eureto.opendoor.logging.MyLog
 import eureto.opendoor.network.EwelinkApiClient
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.collections.iterator
+import eureto.opendoor.ui.screens.BluetoothDeviceScreen
+import eureto.opendoor.ui.screens.BluetoothDeviceInfo
+import eureto.opendoor.ui.theme.OpenDoorTheme
 
 class SelectBluetoothDeviceActivity : AppCompatActivity() {
-    private lateinit var binding: ActivitySelectBluetoothCarAudioBinding
-    private val deviceListStrings = mutableListOf<String>()
-    private lateinit var adapter: ArrayAdapter<String>
-    private var selectedDevice: MutableMap<String, String> = mutableMapOf()
+
     private lateinit var appPreferences: AppPreferences
+    private var devicesState by mutableStateOf<List<BluetoothDeviceInfo>>(emptyList())
+    private var selectedDevicesState by mutableStateOf<Map<String, String>>(emptyMap())
+    private val selectedDevicesMap = mutableMapOf<String, String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        binding = ActivitySelectBluetoothCarAudioBinding.inflate(layoutInflater)
-        setContentView(binding.root)
         appPreferences = EwelinkApiClient.getAppPreferences()
 
-
-        binding.btnSave.setOnClickListener {
-            // TODO: save devices to shared preferences
-            appPreferences.saveSelectedBluetoothDevices(selectedDevice)
-            Toast.makeText(this, "Zapisano urządzenia Bluetooth", Toast.LENGTH_SHORT).show()
-            MyLog.addLogMessageIntoFile(this, "Zapisano urządzenia Bluetooth \n ${selectedDevice.toString()} ")
-            finish()
+        // Load saved devices
+        appPreferences.getSelectedBluetoothDevices()?.let { saved ->
+            selectedDevicesMap.putAll(saved)
+            selectedDevicesState = selectedDevicesMap.toMap()
         }
 
-        adapter = object : ArrayAdapter<String>(
-            this,
-            android.R.layout.simple_list_item_1,
-            deviceListStrings
-        ) {
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val view = super.getView(position, convertView, parent)
-                val item = getItem(position)
-                val macAddress = item?.substringAfter("\n")
-                if (macAddress != null && selectedDevice.containsKey(macAddress)) {
-                    view.setBackgroundColor(Color.LTGRAY)
-                } else {
-                    view.setBackgroundColor(Color.TRANSPARENT)
-                }
-                return view
+        setContent {
+            OpenDoorTheme {
+                BluetoothDeviceScreen(
+                    devices = devicesState,
+                    selectedDevices = selectedDevicesState,
+                    onDeviceClick = { device ->
+                        if (selectedDevicesMap.containsKey(device.address)) {
+                            selectedDevicesMap.remove(device.address)
+                            Toast.makeText(this, "Usunięto: ${device.name}", Toast.LENGTH_SHORT).show()
+                        } else {
+                            selectedDevicesMap[device.address] = device.name
+                            Toast.makeText(this, "Wybrano: ${device.name}", Toast.LENGTH_SHORT).show()
+                        }
+                        selectedDevicesState = selectedDevicesMap.toMap()
+                    },
+                    onSaveClick = {
+                        appPreferences.saveSelectedBluetoothDevices(selectedDevicesMap)
+                        Toast.makeText(this, "Zapisano urządzenia Bluetooth", Toast.LENGTH_SHORT).show()
+                        MyLog.addLogMessageIntoFile(this, "Zapisano urządzenia Bluetooth \n $selectedDevicesMap")
+                        finish()
+                    }
+                )
             }
-        }
-        binding.bluetoothDevicesList.adapter = adapter
-
-        binding.bluetoothDevicesList.setOnItemClickListener { _, _, position, _ ->
-                val selectedInfo = deviceListStrings[position]
-                if (selectedInfo == "No paired devices found") return@setOnItemClickListener
-
-                val name = selectedInfo.substringBefore("\n")
-                val macAddress = selectedInfo.substringAfter("\n")
-            if(selectedDevice.containsKey(macAddress)) {
-                selectedDevice.remove(macAddress)
-                Toast.makeText(this, "Usunięto: ${name}", Toast.LENGTH_SHORT).show()
-            }else{
-                selectedDevice.put(macAddress, name)
-                Toast.makeText(this, "Wybrano: $name", Toast.LENGTH_SHORT).show()
-            }
-            adapter.notifyDataSetChanged()
         }
 
         checkPermissionsAndLoadDevices()
-
     }
 
-    // TODO: make this function more elegant
     private fun checkPermissionsAndLoadDevices() {
         val permissions = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -102,11 +86,9 @@ class SelectBluetoothDeviceActivity : AppCompatActivity() {
     }
 
     private fun loadPairedDevices() {
-
-
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val bluetoothAdapter = bluetoothManager.adapter
-        
+
         if (bluetoothAdapter == null) {
             Toast.makeText(this, "Bluetooth is not supported on this device", Toast.LENGTH_SHORT).show()
             return
@@ -119,25 +101,14 @@ class SelectBluetoothDeviceActivity : AppCompatActivity() {
             null
         }
 
-        deviceListStrings.clear()
+        val list = mutableListOf<BluetoothDeviceInfo>()
         pairedDevices?.forEach { device ->
             val deviceName = try { device.name } catch (e: SecurityException) { "Unknown Device" } ?: "Unknown Device"
             val deviceAddress = device.address
-            deviceListStrings.add("$deviceName\n$deviceAddress")
-        }
-        
-        if (deviceListStrings.isEmpty()) {
-            deviceListStrings.add("No paired devices found")
+            list.add(BluetoothDeviceInfo(name = deviceName, address = deviceAddress))
         }
 
-        // Load saved devices and populate selectedDevice map
-        val savedDevices = appPreferences.getSelectedBluetoothDevices()
-        if(savedDevices != null) {
-            selectedDevice.clear()
-            selectedDevice.putAll(savedDevices)
-        }
-        
-        adapter.notifyDataSetChanged()
+        devicesState = list
     }
 
     override fun onRequestPermissionsResult(
