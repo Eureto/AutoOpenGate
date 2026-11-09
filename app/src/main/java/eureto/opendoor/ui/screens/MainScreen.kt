@@ -65,7 +65,7 @@ fun MainScreen(
         MainScreenContent(
             content = {
                 HeaderBlock(
-                    titleText = if (username.isNotBlank()) "Witaj $username!" else "Sezamie, otwórz się!",
+                    titleText = if (username.isNotBlank()) "Witaj $username!" else "Witaj!",
                     deviceName = if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak urządzenia",
                     isDeviceOn = isDeviceOn,
                     onMenuClick = {
@@ -237,7 +237,7 @@ fun MainScreenContent(
 
 @Composable
 fun HeaderBlock(
-    titleText: String,               // np. "Sezamie, otwórz się!"
+    titleText: String,
     deviceName: String,              // np. "Moja Brama"
     isDeviceOn: Boolean = false,
     onMenuClick: () -> Unit          // Co ma się stać po kliknięciu ikony menu
