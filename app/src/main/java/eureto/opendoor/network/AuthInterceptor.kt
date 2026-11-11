@@ -72,6 +72,8 @@ class AuthInterceptor(
         val currentTimestamp = System.currentTimeMillis()
         val version = 8 // Typowa wersja API dla eWeLink, może wymagać aktualizacji
 
+
+        // TODO
         // Tak ogolnie to wydaje mi sie ze tu jest w chuj za duzo parametrow bo np getDevice czy ten token
         // to pobiera tak z 3/4 parametry a tu jest ich w chuj
         // no ale oni nie sprawdzaja co ja im dodatkowo wysylam tylko czy dostali to co potrzebuja
