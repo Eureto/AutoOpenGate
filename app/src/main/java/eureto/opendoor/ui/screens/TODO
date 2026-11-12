@@ -1,0 +1,30 @@
+Ocena ogólna: 6/10. Estetyka jest spójna i przyjazna, ale brakuje hierarchii, stanu systemu i jasnych etykiet.
+
+Co działa
+
+Spójny język wizualny: zaokrąglone przyciski, karta, duże pola dotyku.
+Konfiguracja jest zgrupowana w zwijanej karcie, więc można ją schować po ustawieniu.
+Suwak na dole leży w zasięgu kciuka, a przesunięcie chroni przed przypadkowym uruchomieniem.
+Ikony „i” przy każdej opcji to dobry pomysł na pomoc kontekstową.
+
+Główne problemy
+
+Odwrócona hierarchia. Trzy pomarancze przyciski konfiguracji krzyczą najgłośniej, a kluczowe „Rozpocznij automatyzacje” jest najbledsze i wygląda na drugorzędne. Powinno być głównym CTA.
+Brak kolejności i statusu. Trzy identyczne przyciski nie mówią, co zrobić najpierw ani co już jest gotowe. Lepszy byłby stepper albo checklista z ✓ / „Nie skonfigurowano” i nazwą wybranej bramy.
+Osierocona etykieta „Bramę”. Bez kontekstu (bierniki bez czasownika) nie wiadomo, co oznacza. Do tego szara żarówka obok jest nieczytelna: czy to wyłączone, czy przycisk, i co ma wspólnego z bramą?
+Niejasny suwak „On ->”. Nie widać, co włącza ani jaki jest obecny stan. Lepiej: „Przesuń, aby włączyć automatyzację”, a po włączeniu zmiana koloru i tekstu na „Aktywne”. Ciemny granat nie pasuje też do reszty palety.
+Brak informacji zwrotnej. Ekran nie pokazuje statusu Bluetooth, połączenia z bramą ani obszaru geofencingu. Środek ekranu (ponad 40% powierzchni) jest pusty, a właśnie tam powinien być status.
+Kontrast. Biały tekst na pomarańczowym (
+#F85C00) ma ok. 3,3:1, czyli poniżej normy WCAG AA (4,5:1) dla tego rozmiaru tekstu. Pomarańcz na limonkowym gradiencie dodatkowo „wibruje”.
+Nagłówek „Witaj!” nic nie wnosi. Lepiej pokazać tam nazwę bramy lub stan systemu.
+Język. „On” i „Geofencing” po angielsku w polskim interfejsie. Lepiej „Włączone” i „Strefa (geofencing)”.
+
+Szybkie poprawki o największym wpływie
+
+Zrób z „Rozpocznij automatyzacje” wypełniony, główny przycisk, a konfigurację ostoń do stylu drugorzędnego (obrys lub wypełnienie neutralne).
+Dodaj statusy przy każdym kroku i zwiń kartę po ukończeniu konfiguracji.
+Wypełnij pustą przestrzeń kartą statusu: stan bramy, połączenie, ostatnia akcja.
+Przerób suwak: czytelna etykieta, kolor stanu i wibracja przy zatwierdzeniu.
+Przyciemnij pomarańcz lub zmień kolor tekstu, żeby osiągnąć 4,5:1.
+
+Mogę też naszkicować poprawioną wersję tego ekranu, jeśli chcesz.
