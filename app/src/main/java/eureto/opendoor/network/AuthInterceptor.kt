@@ -81,7 +81,7 @@ class AuthInterceptor(
         // ale powinoo byc zrobione porzondnie hehehe
 
         // Generowanie podpisu
-        val sign = generateSign(
+        val sign = EwelinkSigner.generateSign(
             method = originalRequest.method,
             uri = originalRequest.url.encodedPath,
             requestBody = originalRequest.body?.readContent(), // Treść body, jeśli istnieje
@@ -121,7 +121,7 @@ class AuthInterceptor(
                             // Ponownie wygeneruj sign, bo zmienił się access token i prawdopodobnie apikey
                             .header("X-CK-Nonce", generateNonce()) // Nowy nonce
                             .header("X-CK-Ts", (System.currentTimeMillis() / 1000).toString())
-                            .header("X-CK-Sign", generateSign( // Generuj nowy podpis z nowymi danymi
+                            .header("X-CK-Sign", EwelinkSigner.generateSign( // Generuj nowy podpis z nowymi danymi
                                 method = originalRequest.method,
                                 uri = originalRequest.url.encodedPath,
                                 requestBody = originalRequest.body?.readContent(),
@@ -164,7 +164,7 @@ class AuthInterceptor(
                             // Ponownie wygeneruj sign, bo zmienił się access token i prawdopodobnie apikey
                             .header("X-CK-Nonce", generateNonce()) // Nowy nonce
                             .header("X-CK-Ts", (System.currentTimeMillis() / 1000).toString())
-                            .header("X-CK-Sign", generateSign( // Generuj nowy podpis z nowymi danymi
+                            .header("X-CK-Sign", EwelinkSigner.generateSign( // Generuj nowy podpis z nowymi danymi
                                 method = originalRequest.method,
                                 uri = originalRequest.url.encodedPath,
                                 requestBody = originalRequest.body?.readContent(),
@@ -203,57 +203,4 @@ class AuthInterceptor(
         return UUID.randomUUID().toString().replace("-", "")
     }
 
-    /**
-     *
-     * Format sygnatury: HMAC-SHA256(stringToSign, apikey)
-     * stringToSign = "appid=${appid}&nonce=${nonce}&seq=${seq}&ts=${ts}&version=${version}&{uri}"
-     *
-     */
-    private fun generateSign(
-        method: String,
-        uri: String,
-        requestBody: String?,
-        params: Map<String, String>,
-        accessToken: String,
-        apiKey: String,
-        nonce: String,
-        timestamp: String,
-        version: String,
-        appId: String
-    ): String {
-        try {
-            val tsInSeconds = (timestamp.toLong() / 1000).toString() // eWeLink zazwyczaj używa sekund
-
-            // Parametry do podpisu, posortowane alfabetycznie
-            val signParams = mutableMapOf<String, String>()
-            signParams["appid"] = appId
-            signParams["nonce"] = nonce
-            signParams["ts"] = tsInSeconds
-            signParams["version"] = version
-
-            params.forEach { (key, value) ->
-                signParams[key] = value
-            }
-
-            val sortedString = signParams.toSortedMap().map { "${it.key}=${it.value}" }.joinToString("&")
-
-            val stringToSign = "${sortedString}&${uri}"
-
-            val hmacSha256 = Mac.getInstance("HmacSHA256")
-            val secretKey = SecretKeySpec(apiKey.toByteArray(StandardCharsets.UTF_8), "HmacSha256")
-            hmacSha256.init(secretKey)
-
-            val hash = hmacSha256.doFinal(stringToSign.toByteArray(StandardCharsets.UTF_8))
-
-            return Base64.encodeToString(hash, Base64.NO_WRAP)
-
-        } catch (e: NoSuchAlgorithmException) {
-            e.printStackTrace()
-        } catch (e: InvalidKeyException) {
-            e.printStackTrace()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return ""
-    }
 }
