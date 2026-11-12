@@ -1,7 +1,10 @@
 package eureto.opendoor.ui
 
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -28,9 +31,12 @@ import eureto.opendoor.location.LocationMonitoringService
 import eureto.opendoor.logging.MyLog
 import eureto.opendoor.network.EwelinkApiClient
 import eureto.opendoor.network.EwelinkDevices
+import eureto.opendoor.network.EwelinkWebSocketManager
 import eureto.opendoor.network.model.Device
 import eureto.opendoor.ui.screens.MainScreen
 import eureto.opendoor.ui.theme.OpenDoorTheme
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -44,6 +50,10 @@ class MainActivity : AppCompatActivity() {
     private var selectedDeviceNameState by mutableStateOf("Brak")
     private var isDeviceOnState by mutableStateOf(false)
     private var isMonitoringActiveState by mutableStateOf(false)
+
+    // Ponawianie połączenia WebSocket z rosnącym opóźnieniem
+    private var webSocketRetryJob: Job? = null
+    private var webSocketRetryDelayMs = 10_000L
 
     // Launcher do prośby o uprawnienia do lokalizacji
     private val requestLocationPermissions = registerForActivityResult(
@@ -143,6 +153,7 @@ class MainActivity : AppCompatActivity() {
                     onLogoutClicked = {
                         appPreferences.clearLoginData()
                         stopLocationMonitoringService()
+                        EwelinkWebSocketManager.disconnect()
                         val intent = Intent(this, LoginActivity::class.java)
                         startActivity(intent)
                         finish()
@@ -160,11 +171,19 @@ class MainActivity : AppCompatActivity() {
 
         MyLog.addLogMessageIntoFile(this, "MainActivity: onCreate called")
         fetchDevices()
+        if (isInternetAvailable()) {
+            initWebSocket()
+        }
     }
 
     override fun onResume() {
         super.onResume()
         updateMonitoringStatusUI()
+
+        // Jeśli połączenie WebSocket zerwało się w tle, spróbuj je odnowić
+        if (isInternetAvailable() && !EwelinkWebSocketManager.isConnected()) {
+            initWebSocket()
+        }
     }
 
     private fun fetchDevices() {
@@ -192,6 +211,84 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 Log.e("MainActivity", "Błąd podczas pobierania urządzeń: ${e.message}", e)
+            }
+        }
+    }
+
+    private fun initWebSocket() {
+        lifecycleScope.launch {
+            try {
+                // Apikey do handshake'u WebSocket pobieramy z /v2/family (familyList[].apikey).
+                // Robimy to zawsze przy inicjalizacji, żeby nadpisać ewentualną złą wartość
+                // zapisaną wcześniej (np. apikey właściciela współdzielonego urządzenia).
+                run {
+                    val apiService = ewelinkApiClient.createApiService()
+                    val response = apiService.getFamilies()
+                    val currentFamilyId = response.data?.currentFamilyId
+                    val family = response.data?.familyList
+                        ?.firstOrNull { it.id == currentFamilyId }
+                        ?: response.data?.familyList?.firstOrNull { !it.apikey.isNullOrEmpty() }
+                    val apikey = family?.apikey
+
+                    if (response.error == 0 && !apikey.isNullOrEmpty()) {
+                        appPreferences.saveUserApikey(apikey)
+                        Log.d("MainActivity", "Pobrano user apikey z /v2/family (len=${apikey.length})")
+                    } else {
+                        Log.e("MainActivity", "Nie udało się pobrać user apikey: ${response.msg}")
+                        return@launch
+                    }
+                }
+
+                val dispatchService = ewelinkApiClient.createDispatchService()
+                val dispatchInfo = dispatchService.getDispatchInfo()
+
+                if (dispatchInfo.error == 0) {
+                    EwelinkWebSocketManager.connect(
+                        context = this@MainActivity,
+                        dispatchInfo = dispatchInfo,
+                        onDeviceStatusUpdate = { deviceId, isOn ->
+                            // Callback leci na wątku tła OkHttp — przenieś na UI
+                            runOnUiThread {
+                                if (deviceId == selectedDeviceIdState) {
+                                    isDeviceOnState = isOn
+                                    // Zapisz czas otwarcia bramy (używane przez geofencing,
+                                    // żeby nie zamykać bramy otwartej < 1 min temu).
+                                    if (isOn) {
+                                        appPreferences.saveLastDeviceStatusChange(System.currentTimeMillis())
+                                    }
+                                }
+                            }
+                        },
+                        onOpen = {
+                            webSocketRetryDelayMs = 10_000L
+                            Log.d("MainActivity", "WebSocket otwarty i zalogowany (userOnline)")
+                        },
+                        onFailure = { t ->
+                            Log.e("MainActivity", "Błąd WebSocket", t)
+                            scheduleWebSocketReconnect()
+                        }
+                    )
+                } else {
+                    Log.e("MainActivity", "Błąd DispatchService: ${dispatchInfo.reason}")
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Błąd inicjalizacji WebSocket: ${e.message}", e)
+            }
+        }
+    }
+
+    /// Ponawia połączenie WebSocket po coraz dłuższej przerwie (10 s, 20 s, 40 s, maks. 120 s).
+    private fun scheduleWebSocketReconnect() {
+        if (webSocketRetryJob?.isActive == true) return
+
+        val delayMs = webSocketRetryDelayMs
+        webSocketRetryDelayMs = (webSocketRetryDelayMs * 2).coerceAtMost(120_000L)
+
+        webSocketRetryJob = lifecycleScope.launch {
+            delay(delayMs)
+            if (isInternetAvailable() && !EwelinkWebSocketManager.isConnected()) {
+                Log.d("MainActivity", "Ponawiam połączenie WebSocket po ${delayMs} ms")
+                initWebSocket()
             }
         }
     }
@@ -336,5 +433,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         bottomSheetDialog.show()
+    }
+
+    /// Sprawdza czy urządzenie ma aktywne połączenie z internetem (WiFi lub komórkowy).
+    private fun isInternetAvailable(): Boolean {
+        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val activeNetwork = connectivityManager?.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+            || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+            || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
     }
 }

@@ -67,7 +67,7 @@ fun MainScreen(
             content = {
                 HeaderBlock(
                     titleText = if (username.isNotBlank()) "Witaj $username!" else "Witaj!",
-                    deviceName = if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak urządzenia",
+                    deviceName = if (selectedDeviceName.isNotBlank()) "Urządzenie: " + selectedDeviceName else "Brak urządzenia",
                     isDeviceOn = isDeviceOn,
                     onMenuClick = {
                         scope.launch { drawerState.open() }
@@ -105,7 +105,7 @@ fun MainScreen(
                         onInfoClick = {
                             infoDialogTitle = "Konfiguracja obszaru (Geofence)"
                             infoDialogDesc =
-                                "Zaznacz na mapie wielokąt wokół Twojego domu lub wjazdu. Przekroczenie tej granicy automatycznie wyśle sygnał do otwarcia bramy."
+                                "Zaznacz na mapie wielokąt wokół Twojego domu lub wjazdu. Przekroczenie tej granicy automatycznie wyśle sygnał do otwarcia bramy. Zadziałanie apliakcji zajmuje około 2-3 sekund po wjechaniu do obszaru ale ten czas może się wydłużyć w zależności od modelu smartfona. Rekomendowane jest około 30 sekund od bramy na czas dojazdu."
                             infoDialogImage = eureto.opendoor.R.drawable.ic_launcher_foreground
                         }
                     )

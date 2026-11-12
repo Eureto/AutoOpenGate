@@ -138,22 +138,30 @@ fun ManualSwitchBlock(
             )
             .padding(horizontal = 8.dp)
     ) {
-        Text(
-            text = if (isOn) "Wyłącz urządzenie" else "Włącz urządzenie",
-            color = Color.White,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.Center)
-        )
+//        Text(
+//            text = if (isOn) "Wyłącz urządzenie" else "Włącz urządzenie",
+//            color = Color.White,
+//            fontSize = 20.sp,
+//            fontWeight = FontWeight.Bold,
+//            modifier = Modifier.align(Alignment.Center)
+//        )
 
         // Suwak / Gałka
         Box(
             modifier = Modifier
                 .align(BiasAlignment(horizontalBias = knobBias, verticalBias = 0f))
-                .width(68.dp)
+                .width(150.dp)
                 .height(80.dp)
                 .shadow(4.dp, RoundedCornerShape(20.dp))
                 .background(Color.White, RoundedCornerShape(20.dp))
-        )
+        ){
+            Text(
+                text = if (isOn) "<- Off" else "On ->",
+                color = Color.Black,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
     }
 }

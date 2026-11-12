@@ -316,20 +316,27 @@ class LocationMonitoringService : Service() {
                 PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
 
                 if (isNowInsidePolygon) {
-                    MyLog.addLogMessageIntoFile(
-                        applicationContext,
-                        "Użytkownik wyjeżdża. Włączam bramę."
-                    )
+                    if (wasGateOpenedRecently()) {
+                        MyLog.addLogMessageIntoFile(
+                            applicationContext,
+                            "Brama otwarta mniej niż minutę temu — pomijam ponowne otwarcie."
+                        )
+                    } else {
+                        MyLog.addLogMessageIntoFile(
+                            applicationContext,
+                            "Użytkownik wyjeżdża. Włączam bramę."
+                        )
 
-                    // Create new notification to tell user that gate was opened
-                    val timestamp =
-                        SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(Date())
-                    createNewUserNotification(
-                        "Stan Bramy",
-                        "Brama została otworzona o godzienie: $timestamp"
-                    )
+                        // Create new notification to tell user that gate was opened
+                        val timestamp =
+                            SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(Date())
+                        createNewUserNotification(
+                            "Stan Bramy",
+                            "Brama została otworzona o godzienie: $timestamp"
+                        )
 
-                    EwelinkDevices.toggleDevice(deviceId, "on")
+                        EwelinkDevices.toggleDevice(deviceId, "on")
+                    }
                 }else{
                     MyLog.addLogMessageIntoFile(applicationContext, "Użytkownik nie jest w domu, nie uruchamiam bramy")
                 }
@@ -337,6 +344,17 @@ class LocationMonitoringService : Service() {
 
         }
     }
+    /**
+     * Zwraca true, jeśli brama została otwarta mniej niż 60 sekund temu.
+     * W takiej sytuacji nie wysyłamy kolejnego "on", żeby nie zamknąć bramy
+     * przed użytkownikiem, który właśnie do niej podjeżdża.
+     */
+    private fun wasGateOpenedRecently(): Boolean {
+        val lastOpen = appPreferences.getLastDeviceStatusChange() ?: return false
+        val elapsedMs = System.currentTimeMillis() - lastOpen
+        return elapsedMs in 0 until 60_000L
+    }
+
     private fun checkLocationInGeofence() {
         MyLog.addLogMessageIntoFile(this, "Zaczynam funkcje sprawdzania lokalizacji w geofence")
 
@@ -414,22 +432,29 @@ class LocationMonitoringService : Service() {
                     PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
 
                 if (isNowInsidePolygon) {
-                    MyLog.addLogMessageIntoFile(
-                        applicationContext,
-                        "Użytkownik wrócił do obszaru. Włączam bramę."
-                    )
-
-                    // Create new notification to tell user that gate was opened
-                    val timestamp =
-                        SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(
-                            Date()
+                    if (wasGateOpenedRecently()) {
+                        MyLog.addLogMessageIntoFile(
+                            applicationContext,
+                            "Brama otwarta mniej niż minutę temu — pomijam ponowne otwarcie."
                         )
-                    createNewUserNotification(
-                        "Stan Bramy",
-                        "Brama została otworzona o godzienie: $timestamp"
-                    )
+                    } else {
+                        MyLog.addLogMessageIntoFile(
+                            applicationContext,
+                            "Użytkownik wrócił do obszaru. Włączam bramę."
+                        )
 
-                    EwelinkDevices.toggleDevice(deviceId, "on")
+                        // Create new notification to tell user that gate was opened
+                        val timestamp =
+                            SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(
+                                Date()
+                            )
+                        createNewUserNotification(
+                            "Stan Bramy",
+                            "Brama została otworzona o godzienie: $timestamp"
+                        )
+
+                        EwelinkDevices.toggleDevice(deviceId, "on")
+                    }
                     gateOpened = true
 
                     fusedLocationClient.removeLocationUpdates(locationCallback).addOnSuccessListener {
