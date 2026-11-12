@@ -49,6 +49,8 @@ class AppPreferences(private val context: Context) {
             putString("access_token", loginResponse.data?.accessToken)
             putString("refresh_token", loginResponse.data?.refreshToken)
 
+            loginResponse.data?.region?.let { putString("region", it) }
+            loginResponse.data?.user?.apikey?.let { putString("user_apikey", it) }
             loginResponse.data?.atExpiredTime?.let { putLong("access_token_expires_at", it) } ?: remove("access_token_expires_at")
             loginResponse.data?.rtExpiredTime?.let { putLong("refresh_token_expires_at", it) } ?: remove("refresh_token_expires_at")
 
@@ -61,6 +63,30 @@ class AppPreferences(private val context: Context) {
     fun getRefreshToken(): String? = encryptedSharedPreferences.getString("refresh_token", null)
     // Returns region, default is "eu"
     fun getRegion(): String = encryptedSharedPreferences.getString("region", "eu") ?: "eu"
+
+    // Returns user apikey (for WebSocket authentication)
+    fun getUserApikey(): String? = encryptedSharedPreferences.getString("user_apikey", null)
+
+    // Saves user apikey (e.g. fetched from GET /v2/user/profile for already logged-in users)
+    fun saveUserApikey(apikey: String) {
+        encryptedSharedPreferences.edit().putString("user_apikey", apikey).apply()
+    }
+
+    // Saves / overwrites the user region code (eu, us, as, cn)
+    fun saveRegion(region: String) {
+        encryptedSharedPreferences.edit().putString("region", region).apply()
+    }
+
+    // Saves the timestamp (ms) of the last device status change received via WebSocket
+    fun saveLastDeviceStatusChange(timestampMs: Long) {
+        encryptedSharedPreferences.edit().putLong("last_device_status_change_ms", timestampMs).apply()
+    }
+
+    // Returns the timestamp (ms) of the last device status change, or null if never recorded
+    fun getLastDeviceStatusChange(): Long? {
+        val value = encryptedSharedPreferences.getLong("last_device_status_change_ms", -1L)
+        return if (value == -1L) null else value
+    }
 
     // Functions to save and get OAuth state parameter
     fun saveOAuthState(state: String) {

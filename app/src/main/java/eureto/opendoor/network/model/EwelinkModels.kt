@@ -7,8 +7,25 @@ data class LoginResponseData(
     @SerializedName("accessToken") val accessToken: String?,
     @SerializedName("refreshToken") val refreshToken: String?,
     @SerializedName("atExpiredTime") val atExpiredTime: Long?,
-    @SerializedName("rtExpiredTime") val rtExpiredTime: Long?
-    // Usunięto region, userId i apikey z LoginResponseData zgodnie z otrzymaną odpowiedzią JSON
+    @SerializedName("rtExpiredTime") val rtExpiredTime: Long?,
+    @SerializedName("region") val region: String? = null,
+    @SerializedName("user") val user: LoginUser? = null
+)
+data class LoginUser(
+    @SerializedName("apikey") val apikey: String? = null
+)
+
+// GET /v2/family — familyList[].apikey to apikey zalogowanego użytkownika,
+// czyli właściwa wartość do handshake'u WebSocket (userOnline).
+data class FamilyInfo(
+    @SerializedName("id") val id: String? = null,
+    @SerializedName("apikey") val apikey: String? = null,
+    @SerializedName("name") val name: String? = null
+)
+
+data class FamilyListWrapper(
+    @SerializedName("familyList") val familyList: List<FamilyInfo>? = null,
+    @SerializedName("currentFamilyId") val currentFamilyId: String? = null
 )
 
 // Odpowiedź na logowanie OAuth2
@@ -195,4 +212,14 @@ data class WebSocketMessage(
     val deviceid: String? = null,
     val params: Map<String, Any>? = null,
     val sequence: String? = null // Dla ping/pong
+)
+
+// Odpowiedź z DispatchService - dane serwera WebSocket (domain, port)
+// Dokumentacja eWeLink API Center v2, sekcja "Real Time Control Device > HTTP: DispatchService (APP)"
+data class DispatchInfo(
+    @SerializedName("port") val port: Int,
+    @SerializedName("IP") val ip: String,
+    @SerializedName("reason") val reason: String,
+    @SerializedName("domain") val domain: String,
+    @SerializedName("error") val error: Int
 )

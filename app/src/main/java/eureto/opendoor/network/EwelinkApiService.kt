@@ -4,6 +4,8 @@ import eureto.opendoor.network.model.ApiResponse
 import eureto.opendoor.network.model.Device
 import eureto.opendoor.network.model.DeviceControlRequest
 import eureto.opendoor.network.model.DeviceListWrapper
+import eureto.opendoor.network.model.DispatchInfo
+import eureto.opendoor.network.model.FamilyListWrapper
 import eureto.opendoor.network.model.ToggleResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -24,4 +26,10 @@ interface EwelinkApiService {
     @POST("v2/device/thing/status")
     @Headers("Content-Type: application/json")
     suspend fun setDeviceStatus(@Body body: DeviceControlRequest): ApiResponse<ToggleResponse>
+
+    @GET("dispatch/app")
+    suspend fun getDispatchInfo(): DispatchInfo
+
+    @GET("v2/family")
+    suspend fun getFamilies(): ApiResponse<FamilyListWrapper>
 }

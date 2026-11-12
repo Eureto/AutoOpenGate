@@ -71,6 +71,35 @@ object EwelinkApiClient {
             .create(EwelinkApiService::class.java)
     }
 
+    fun createDispatchService(): EwelinkApiService {
+        val region = appPreferences.getRegion()
+        val baseUrl = "https://$region-dispa.coolkit.cc/"
+        val accessToken = appPreferences.getAccessToken()
+
+        // DispatchService wymaga WYŁĄCZNIE nagłówka Authorization (Token), bez podpisu.
+        // Używamy osobnego klienta bez AuthInterceptor, żeby błąd dispatchu nie wywoływał
+        // odświeżania tokenu i nie wpływał na żądania REST (np. setDeviceStatus).
+        val dispatchClient = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val builder = chain.request().newBuilder()
+                if (!accessToken.isNullOrEmpty()) {
+                    builder.header("Authorization", "Bearer $accessToken")
+                }
+                chain.proceed(builder.build())
+            }
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(dispatchClient)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+            .create(EwelinkApiService::class.java)
+    }
+
 
     fun getAppPreferences(): AppPreferences {
         return appPreferences
