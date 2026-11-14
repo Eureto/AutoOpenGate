@@ -1,5 +1,8 @@
 package eureto.opendoor.ui.screens
 
+import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
+import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,15 +27,24 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import eureto.opendoor.data.AppPreferences
+import eureto.opendoor.network.EwelinkApiClient
 import eureto.opendoor.network.model.Device
 import eureto.opendoor.ui.components.*
 import eureto.opendoor.ui.theme.*
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun MainScreen(
@@ -57,6 +69,43 @@ fun MainScreen(
     var infoDialogDesc by remember { mutableStateOf<String?>(null) }
     var infoDialogImage by remember { mutableStateOf<Any?>(null) }
 
+    // Stan konfiguracji czytany bezpośrednio z preferencji
+    // Odświeżany w ON_RESUME, żeby po powrocie z ekranu Bluetooth/Mapy
+    // przyciski od razu pokazywały aktualny stan.
+    val context = LocalContext.current
+    val appPreferences = remember { EwelinkApiClient.getAppPreferences() }
+    var isBluetoothConfigured by remember {
+        mutableStateOf(appPreferences.getSelectedBluetoothDevices()?.isNotEmpty() == true)
+    }
+    var isAreaConfigured by remember {
+        mutableStateOf(!appPreferences.getPolygonCoordinates().isNullOrEmpty())
+    }
+    var zoneRadiusMeters by remember { mutableStateOf(appPreferences.getGeofenceRadius()) }
+    var lastActionTimestamp by remember { mutableStateOf(appPreferences.getLastDeviceStatusChange()) }
+    var isBluetoothConnected by remember {
+        mutableStateOf(isSavedBluetoothDeviceConnected(context, appPreferences))
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isBluetoothConfigured =
+                    appPreferences.getSelectedBluetoothDevices()?.isNotEmpty() == true
+                isAreaConfigured = !appPreferences.getPolygonCoordinates().isNullOrEmpty()
+                zoneRadiusMeters = appPreferences.getGeofenceRadius()
+                lastActionTimestamp = appPreferences.getLastDeviceStatusChange()
+                isBluetoothConnected = isSavedBluetoothDeviceConnected(context, appPreferences)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val lastActionText = remember(lastActionTimestamp) {
+        lastActionTimestamp?.let(::formatLastAction)
+    }
+
     AppDrawer(
         drawerState = drawerState,
         scope = scope,
@@ -74,11 +123,12 @@ fun MainScreen(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(36.dp))
 
                 ExpandableCardBlock(title = "Konfiguracja") {
                     ActionButtonWithInfoBlock(
-                        text = "Wybierz urządzenie (${if (selectedDeviceName.isNotBlank()) selectedDeviceName else "Brak"})",
+                        isSet = selectedDeviceName.isNotBlank(),
+                        text = "Wybierz urządzenie",
                         onClick = { showDeviceDialog = true },
                         onInfoClick = {
                             infoDialogTitle = "Urządzenie Ewelink"
@@ -89,6 +139,7 @@ fun MainScreen(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     ActionButtonWithInfoBlock(
+                        isSet = isBluetoothConfigured,
                         text = "Urządzenia Bluetooth",
                         onClick = onSelectBluetoothClicked,
                         onInfoClick = {
@@ -100,7 +151,8 @@ fun MainScreen(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     ActionButtonWithInfoBlock(
-                        text = "Mapa i obszar (Geofencing)",
+                        isSet = isAreaConfigured,
+                        text = "Mapa i obszar",
                         onClick = onOpenMapClicked,
                         onInfoClick = {
                             infoDialogTitle = "Konfiguracja obszaru (Geofence)"
@@ -113,7 +165,19 @@ fun MainScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                AnimatedVisibility(visible = isMonitoringActive) {
+                    Column {
+                        AutomationStatusCard(
+                            bluetoothConnected = isBluetoothConnected,
+                            zoneRadiusMeters = zoneRadiusMeters,
+                            lastActionText = lastActionText
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+
                 PillButtonBlock(
+                    isConfigurationSet = selectedDeviceName.isNotBlank() && isBluetoothConfigured && isAreaConfigured,
                     text = if (isMonitoringActive) "Zatrzymaj automatyzacje" else "Rozpocznij automatyzacje",
                     onClick = onToggleMonitoringClicked
                 )
@@ -150,7 +214,7 @@ fun MainScreen(
             title = { Text("Wybierz urządzenie", color = JetBlack, fontWeight = FontWeight.Bold) },
             text = {
                 if (deviceList.isEmpty()) {
-                    Text("Brak pobranych urządzeń Ewelink lub trwa ich pobieranie...", color = JetBlack)
+                    Text("Brak pobranych urządzeń Ewelink lub trwa ich pobieranie...\nSprawdź połączenie z internetem", color = JetBlack)
                 } else {
                     Column(
                         modifier = Modifier
@@ -437,3 +501,54 @@ fun BottomNavigationBarBlock(
         }
     }
 }
+
+/** Formatuje czas ostatniego otwarcia bramy, np. "Otwarto dziś, 18:42". */
+private fun formatLastAction(timestampMs: Long): String {
+    val moment = Date(timestampMs)
+    val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(moment)
+    val dayFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+    return if (dayFormat.format(moment) == dayFormat.format(Date())) {
+        "Otwarto dziś, $time"
+    } else {
+        "Otwarto ${SimpleDateFormat("d.MM, HH:mm", Locale.getDefault()).format(moment)}"
+    }
+}
+
+/**
+ * Sprawdza, czy któreś z zapisanych urządzeń Bluetooth jest aktualnie połączone.
+ * Zwraca null, gdy nie ma zapisanych urządzeń, brak adaptera lub brak uprawnień.
+ *
+ * Uwaga: nie każdy telefon wspiera wszystkie profile (np. HEADSET), dlatego każdy
+ * profil sprawdzamy osobno i pomijamy te, które rzucą IllegalArgumentException.
+ */
+private fun isSavedBluetoothDeviceConnected(
+    context: Context,
+    appPreferences: AppPreferences
+): Boolean? {
+    val savedDevices = appPreferences.getSelectedBluetoothDevices() ?: return null
+    if (savedDevices.isEmpty()) return null
+
+    val bluetoothManager =
+        context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager ?: return null
+
+    val connectedAddresses = mutableSetOf<String>()
+    for (profile in BLUETOOTH_PROFILES) {
+        try {
+            bluetoothManager.getConnectedDevices(profile).mapTo(connectedAddresses) { it.address }
+        } catch (e: SecurityException) {
+            // Na Androidzie 12+ wymagane jest uprawnienie BLUETOOTH_CONNECT
+            return null
+        } catch (e: Exception) {
+            // Profil niewspierany przez to urządzenie (np. HEADSET) — pomijamy
+        }
+    }
+
+    return savedDevices.keys.any { it in connectedAddresses }
+}
+
+private val BLUETOOTH_PROFILES = listOf(
+    BluetoothProfile.HEADSET,
+    BluetoothProfile.A2DP,
+    BluetoothProfile.GATT,
+    BluetoothProfile.GATT_SERVER
+)
