@@ -133,6 +133,9 @@ class MainActivity : AppCompatActivity() {
                         selectedDeviceIdState?.let { id ->
                             val switchValue = if (newState) "on" else "off"
                             EwelinkDevices.toggleDevice(id, switchValue)
+                            if (newState) {
+                                appPreferences.saveLastDeviceStatusChange(System.currentTimeMillis())
+                            }
                             isDeviceOnState = newState
                         } ?: Toast.makeText(this, "Najpierw wybierz urządzenie z listy.", Toast.LENGTH_SHORT).show()
                     },
