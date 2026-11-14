@@ -1,5 +1,7 @@
 package eureto.opendoor.ui
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
 import android.os.Bundle
@@ -11,9 +13,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import com.google.android.gms.maps.model.LatLng
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import eureto.opendoor.R
 import eureto.opendoor.data.AppPreferences
 import eureto.opendoor.network.EwelinkApiClient
 import eureto.opendoor.ui.screens.MapScreen
@@ -63,6 +67,22 @@ class MapActivity : AppCompatActivity() {
         }
 
         mMyLocationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(this), mMap)
+        ContextCompat.getDrawable(
+            this,
+            org.osmdroid.library.R.drawable.round_navigation_white_48
+        )?.mutate()?.let { directionArrow ->
+            directionArrow.setTint(ContextCompat.getColor(this, R.color.location_arrow_blue))
+            val arrowBitmap = Bitmap.createBitmap(
+                directionArrow.intrinsicWidth,
+                directionArrow.intrinsicHeight,
+                Bitmap.Config.ARGB_8888
+            )
+            val canvas = Canvas(arrowBitmap)
+            directionArrow.setBounds(0, 0, canvas.width, canvas.height)
+            directionArrow.draw(canvas)
+            mMyLocationOverlay.setDirectionIcon(arrowBitmap)
+            mMyLocationOverlay.setDirectionAnchor(0.5f, 0.5f)
+        }
         controller = mMap.controller
 
         mMyLocationOverlay.enableMyLocation()
