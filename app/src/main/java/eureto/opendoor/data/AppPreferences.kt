@@ -167,6 +167,7 @@ class AppPreferences(private val context: Context) {
     fun setIsUserInCircle(value: Boolean) {
         with(encryptedSharedPreferences.edit()) {
             putBoolean("is_user_in_circle", value)
+            apply()
         }
     }
 
