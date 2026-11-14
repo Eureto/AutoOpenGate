@@ -45,7 +45,7 @@ fun BluetoothDeviceScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Zaznacz urządzenia, które reprezentują Twoje samochody.\nPamiętaj aby zaznaczyć odpowiedni obszar na mapie.",
+            text = "Zaznacz urządzenia, które reprezentują Twoje samochody.",
             fontSize = 16.sp,
             color = JetBlack,
             modifier = Modifier.padding(horizontal = 8.dp)
