@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlin.jvm.java
 import android.R.attr.action
 import eureto.opendoor.location.LocationMonitoringService.Companion.ACTION_START_LOCATION
+import eureto.opendoor.location.LocationMonitoringService.Companion.ACTION_START_BACKGROUND_LOCATION
 import eureto.opendoor.logging.MyLog
 
 /**
@@ -39,7 +40,7 @@ import eureto.opendoor.logging.MyLog
 class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
     private val notificationId = 1001
-    private val notificationChannelId = LocationMonitoringService.NOTIFICATION_CHANNEL_ID
+    private val notificationChannelId = LocationMonitoringService.EVENTS_NOTIFICATION_CHANNEL_ID
 
     override fun onReceive(context: Context?, intent: Intent?) {
         MyLog.addLogMessageIntoFile(context ?: return, "Otrzymano złgłoszenie Geofence")
@@ -81,18 +82,23 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         when (geofenceTransition) {
             Geofence.GEOFENCE_TRANSITION_ENTER -> {
                 appPreferences.setIsUserInCircle(true)
-                MyLog.addLogMessageIntoFile(context, "Zdarzenie GEOFENCE_TRANSITION_DWELL")
+                MyLog.addLogMessageIntoFile(context, "Zdarzenie GEOFENCE_TRANSITION_ENTER")
                 val locationIntent = Intent(context, LocationMonitoringService::class.java).apply {
                     action = ACTION_START_LOCATION
                 }
                 ContextCompat.startForegroundService(context, locationIntent)
             }
 
-            //TODO: Dodaj obsługe zdarzenia EXIT w geofence receiver
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 appPreferences.setIsUserInCircle(false)
-                MyLog.addLogMessageIntoFile(context, "Zdarzenie GEOFENCE_TRANSITION_EXIT ale robie return")
-                return
+                MyLog.addLogMessageIntoFile(
+                    context,
+                    "Zdarzenie GEOFENCE_TRANSITION_EXIT — uruchamiam aktualizację lokalizacji w tle"
+                )
+                val locationIntent = Intent(context, LocationMonitoringService::class.java).apply {
+                    action = ACTION_START_BACKGROUND_LOCATION
+                }
+                ContextCompat.startForegroundService(context, locationIntent)
             }
 
             else -> {
@@ -103,6 +109,9 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
     private fun sendNotification(context: Context?, message: String) {
         if (context == null) return
+
+        // Kanał może nie istnieć, jeśli usługa nie jest aktualnie uruchomiona.
+        LocationMonitoringService.createNotificationChannels(context)
 
         val builder = NotificationCompat.Builder(context, notificationChannelId)
             .setSmallIcon(R.drawable.ic_notification)
