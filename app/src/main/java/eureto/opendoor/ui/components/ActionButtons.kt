@@ -14,15 +14,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SegmentedButtonDefaults.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import eureto.opendoor.ui.theme.BlazeOrange
 import eureto.opendoor.ui.theme.BlueSlate
 import eureto.opendoor.ui.theme.CardBg
+import eureto.opendoor.ui.theme.DarkGreen
 import eureto.opendoor.ui.theme.JetBlack
 
 @Composable
@@ -155,15 +158,14 @@ fun PillButtonBlock(
     }
 }
 
-//Niestandardowy przycisk-suwak: gałka przesuwa się w prawo, gdy urządzenie jest włączone.
+// Niestandardowy przycisk-suwak: kliknięcie przesuwa gałkę i przełącza stan urządzenia.
 @Composable
 fun ManualSwitchBlock(
     isOn: Boolean,
     onToggle: (Boolean) -> Unit // Zwraca nowy stan włączenia (true/false)
 ) {
-    // Kolor tła płynnie przechodzi między stanami zamiast przeskakiwać
     val trackColor by animateColorAsState(
-        targetValue = if (isOn) BlazeOrange else BlueSlate,
+        targetValue = if (isOn) BlazeOrange else DarkGreen,
         label = "trackColor"
     )
 
@@ -177,7 +179,7 @@ fun ManualSwitchBlock(
         modifier = Modifier
             .fillMaxWidth()
             .height(100.dp)
-            .clip(RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(50.dp))
             .background(trackColor)
             .toggleable(
                 value = isOn,
@@ -186,23 +188,52 @@ fun ManualSwitchBlock(
             )
             .padding(horizontal = 8.dp)
     ) {
+        // Główny napis zmieniający się w zależności od stanu
         Text(
-            text = if (isOn) "Wyłącz urządzenie" else "Włącz urządzenie",
+            text = if (isOn) "Włączono" else "Włącz urządzenie",
             color = Color.White,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.Center)
         )
 
-        // Suwak / Gałka
+        // Wskaźnik strzałek >>> widoczny w stanie spoczynku
+        if (!isOn) {
+            Text(
+                text = ">>>",
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 24.dp)
+            )
+        }
+
+        // Biała okrągła gałka z ikoną strzałki (gdy wyłączone) lub ptaszka (gdy włączone)
         Box(
             modifier = Modifier
                 .align(BiasAlignment(horizontalBias = knobBias, verticalBias = 0f))
-                .width(80.dp)
-                .height(80.dp)
-                .shadow(4.dp, RoundedCornerShape(20.dp))
-                .background(Color.White, RoundedCornerShape(20.dp))
-
-        )
+                .size(80.dp)
+                .shadow(4.dp, CircleShape)
+                .background(Color.White, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isOn) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Włączono",
+                    tint = DarkGreen,
+                    modifier = Modifier.size(42.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Włącz urządzenie",
+                    tint = DarkGreen,
+                    modifier = Modifier.size(38.dp)
+                )
+            }
+        }
     }
 }

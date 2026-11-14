@@ -8,3 +8,5 @@ val BlueSlate = Color(0xFF4F5D75)     // Szaro-niebieski
 val SilverColor = Color(0xFFBFC0C0)   // Srebrny
 val LightYellowBg = Color(0xFFE8FFAD) // Jasna limonka/żółć (dolna część gradientu)
 val CardBg = Color(0xFFF4FBE4)        // Tło kart
+
+val DarkGreen = Color(0xff166534)
