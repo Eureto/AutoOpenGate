@@ -62,7 +62,6 @@ class LocationMonitoringService : Service() {
     private var deviceIdToControl: String? = null
     private var polygonJson: String? = null
     private var polygonCoordinates: List<LatLng>? = null
-    private var polygonCenterJSON: String? = null
     private var polygonCenter: LatLng? = null
     private var geofenceRadius: Int? = null
     private val scopeLocationCheckInCar = CoroutineScope(Dispatchers.Main)
@@ -74,14 +73,49 @@ class LocationMonitoringService : Service() {
         const val ACTION_LOG_UPDATE = "eureto.opendoor.action.LOG_UPDATE"
         const val EXTRA_LOG_MESSAGE = "eureto.opendoor.extra.LOG_MESSAGE"
         const val NOTIFICATION_CHANNEL_ID = "eureto_opendoor_location_channel"
+        const val EVENTS_NOTIFICATION_CHANNEL_ID = "eureto_opendoor_events_channel"
         const val NOTIFICATION_ID = 123
         const val GEOFENCE_REQUEST_ID = "home_area_geofence"
         const val ACTION_GEOFENCE_TRANSITION = "eureto.opendoor.ACTION_GEOFENCE_TRANSITION"
         const val ACTION_OPEN_GATE = "eureto.opendoor.ACTION_OPEN_GATE"
         const val ACTION_STOP_SERVICE = "eureto.opendoor.ACTION_STOP_SERVICE"
         const val ACTION_START_LOCATION = "eureto.opendoor.ACTION_START_LOCATION"
+        const val ACTION_START_BACKGROUND_LOCATION = "eureto.opendoor.ACTION_START_BACKGROUND_LOCATION"
         const val ACTION_LOCATION_CHECK_IN_CAR = "eureto.opendoor.ACTION_LOCATION_CHECK_AT_HOME"
 
+        fun createNotificationChannels(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
+            val notificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+            val serviceChannel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Monitorowanie lokalizacji",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            serviceChannel.description =
+                "Kanał dla powiadomień o monitorowaniu lokalizacji eWeLink."
+            serviceChannel.enableLights(false)
+            serviceChannel.enableVibration(false)
+            serviceChannel.setSound(null, null)
+            serviceChannel.lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
+            notificationManager.createNotificationChannel(serviceChannel)
+
+            // Osobny kanał o wysokim priorytecie, żeby zdarzenia (otwarcie bramy, błędy)
+            // pojawiały się jako heads-up, a nie tylko w pasku powiadomień.
+            val eventsChannel = NotificationChannel(
+                EVENTS_NOTIFICATION_CHANNEL_ID,
+                "Zdarzenia bramy",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            eventsChannel.description =
+                "Powiadomienia o otwarciu bramy i błędach działania aplikacji."
+            eventsChannel.enableLights(true)
+            eventsChannel.enableVibration(true)
+            eventsChannel.lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
+            notificationManager.createNotificationChannel(eventsChannel)
+        }
     }
 
 
@@ -90,7 +124,7 @@ class LocationMonitoringService : Service() {
         geofencingClient = LocationServices.getGeofencingClient(this)
         appPreferences = EwelinkApiClient.getAppPreferences()
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        createNotificationChannel()
+        createNotificationChannels(this)
     }
 
     /**
@@ -104,32 +138,13 @@ class LocationMonitoringService : Service() {
 
         deviceIdToControl = appPreferences.getSelectedDeviceId()
         polygonJson = appPreferences.getPolygonCoordinates()
-        polygonCenterJSON = appPreferences.getPolygonCenter()
         geofenceRadius = appPreferences.getGeofenceRadius()
 
 
-        if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty() || polygonCenterJSON == null || geofenceRadius == null) {
+        if (deviceIdToControl.isNullOrEmpty() || polygonJson.isNullOrEmpty() || geofenceRadius == null) {
             Toast.makeText(this, "Brak zapisanych ustawień lokalizacji. Zatrzymuje usługę", Toast.LENGTH_LONG).show()
             Log.e("LocationService", "Brak zapisanych ustawień lokalizacji. Zatrzymuję usługę.")
             stopSelf()
-            return START_NOT_STICKY
-        }
-
-
-        if (polygonCenterJSON.isNullOrEmpty()) {
-            MyLog.addLogMessageIntoFile(this, "Brak polygonCenter, return")
-            return START_NOT_STICKY
-        }
-
-        // Retrive from JSON center points of polygon
-        val polygonCenterJSON_IMMUTABLE = polygonCenterJSON
-        polygonCenter = try {
-            val parts = polygonCenterJSON_IMMUTABLE!!.split(",")
-            val lng = parts[0].toDouble()
-            val lat = parts[1].toDouble()
-            LatLng(lat, lng)
-        } catch (e: Exception) {
-            Log.e("LocationService", "Błąd parsowania środka wielokąta błąd: ${e.message}")
             return START_NOT_STICKY
         }
 
@@ -146,6 +161,13 @@ class LocationMonitoringService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+
+        // Środek geofence liczymy zawsze z aktualnego wielokąta.
+        polygonCenter = LatLng(
+            polygonCoordinates!!.map { it.latitude }.average(),
+            polygonCoordinates!!.map { it.longitude }.average()
+        )
+        MyLog.addLogMessageIntoFile(this, "Środek obszaru: $polygonCenter")
 
         when (intent?.action) {
             ACTION_OPEN_GATE -> {
@@ -168,6 +190,16 @@ class LocationMonitoringService : Service() {
 
                 return START_STICKY
             }
+            ACTION_START_BACKGROUND_LOCATION -> {
+                // Usługa mogła zostać ubita, a receiver i tak wystartował ją przez
+                // startForegroundService — trzeba szybko pokazać powiadomienie.
+                startForeground(
+                    NOTIFICATION_ID,
+                    createMainNotification("Monitorowanie lokalizacji aktywne.").build()
+                )
+                checkLocationAtBackground(this)
+                return START_STICKY
+            }
             ACTION_LOCATION_CHECK_IN_CAR -> {
 
                 checkLoctionWhenUserIsInCar()
@@ -180,7 +212,16 @@ class LocationMonitoringService : Service() {
             NOTIFICATION_ID,
             createMainNotification("Monitorowanie lokalizacji aktywne.").build()
         )
-        setFlagIfUserInCircle()
+        setFlagIfUserInCircle { isInCircle ->
+            if (isInCircle) {
+                MyLog.addLogMessageIntoFile(
+                    this,
+                    "Użytkownik jest w obszarze — pętla lokalizacji w tle nie startuje."
+                )
+            } else {
+                checkLocationAtBackground(this)
+            }
+        }
         addGeofences()
 
         return START_STICKY
@@ -202,7 +243,7 @@ class LocationMonitoringService : Service() {
     //      MANUAL CHECKING          //
     ///////////////////////////////////
 
-    private fun setFlagIfUserInCircle(){
+    private fun setFlagIfUserInCircle(onChecked: ((Boolean) -> Unit)? = null){
 
         // Checking permissions
         val hasFineLocationPermission = ContextCompat.checkSelfPermission(
@@ -245,23 +286,29 @@ class LocationMonitoringService : Service() {
                             "Błąd konfiguracji",
                             "Brak promienia geofence, aplikacja kończy działanie"
                         )
+                        onChecked?.invoke(false)
                         return@launch
                     }
 
-                    if (distanceFromCenterToUser > geofenceRadius!!) {
+                    val isInside = distanceFromCenterToUser <= geofenceRadius!!
+                    if (isInside) {
+                        appPreferences.setIsUserInCircle(true)
+                    } else {
                         MyLog.addLogMessageIntoFile(
                             applicationContext,
                             " Użytkownik nie jest w obszarze okręgu"
                         )
                         appPreferences.setIsUserInCircle(false)
-                        // brake
-                    }else{
-                        appPreferences.setIsUserInCircle(true)
                     }
+                    onChecked?.invoke(isInside)
+                } else {
+                    // Nie znamy pozycji — bezpieczniej uruchomić pętlę, ona spróbuje ponownie.
+                    onChecked?.invoke(false)
                 }
             } catch(e: Exception)
             {
                 MyLog.addLogMessageIntoFile(applicationContext,"Błąd aktualizacji lokalizacji w tle: ${e.message}")
+                onChecked?.invoke(false)
             }
         }
     }
@@ -336,6 +383,7 @@ class LocationMonitoringService : Service() {
                         )
 
                         EwelinkDevices.toggleDevice(deviceId, "on")
+                        appPreferences.saveLastDeviceStatusChange(System.currentTimeMillis())
                     }
                 }else{
                     MyLog.addLogMessageIntoFile(applicationContext, "Użytkownik nie jest w domu, nie uruchamiam bramy")
@@ -454,6 +502,7 @@ class LocationMonitoringService : Service() {
                         )
 
                         EwelinkDevices.toggleDevice(deviceId, "on")
+                        appPreferences.saveLastDeviceStatusChange(System.currentTimeMillis())
                     }
                     gateOpened = true
 
@@ -509,12 +558,7 @@ class LocationMonitoringService : Service() {
     }
 
     private fun calculateDynamicInterval(distanceKm: Float): Long {
-        return when {
-            distanceKm <= 1f -> TimeUnit.MINUTES.toMillis(1)
-            distanceKm >= 1.5 -> { val timeout = distanceKm
-                TimeUnit.MINUTES.toMillis(timeout.toLong())}
-            else -> TimeUnit.HOURS.toMillis(1) // Bardzo daleko, sprawdzaj rzadziej, i tak się nigy nie wykona ale parser krzyczy o błąd
-        }
+        return TimeUnit.MINUTES.toMillis(distanceKm.toLong())
     }
 
     ///////////////////////////////////
@@ -586,8 +630,8 @@ class LocationMonitoringService : Service() {
                 MyLog.addLogMessageIntoFile(this,"Geofence dodany pomyślnie.")
                 updateMainNotification("Monitorowanie aktywne: Obszar dodany.")
 
-                //start monitoring locaiton at the background so phone can update its position
-                checkLocationAtBackground(this)
+                // Pętlę lokalizacji w tle uruchamia onStartCommand,
+                // ale tylko gdy użytkownik jest poza obszarem.
             }
             .addOnFailureListener { e ->
                 Log.e("LocationService", "Błąd dodawania Geofence: ${e.message}", e)
@@ -658,10 +702,23 @@ class LocationMonitoringService : Service() {
                         if(location != null) {
 
                             val currentLocation = LatLng(location.latitude, location.longitude)
+
+                            // W domu nie ma czego odpytywać — pętla ma sens tylko poza obszarem.
+                            val isNowInsidePolygon = PolyUtil.containsLocation(
+                                currentLocation,
+                                polygonCoordinates!!,
+                                true
+                            )
+                            if (isNowInsidePolygon) {
+                                appPreferences.setIsUserInCircle(true)
+                                MyLog.addLogMessageIntoFile(
+                                    context,
+                                    "Użytkownik wrócił do obszaru — zatrzymuję pętlę lokalizacji w tle"
+                                )
+                                break
+                            }
+
                             val distance = calculateDistanceToPolygon(currentLocation, polygonCoordinates!!)
-                            // TODO: Check if user is in the geofence circle
-                            // if it is then quit this function of just set the delay to idk. 1hour or so
-                            // or implement the ability to trigger this function while GeofenceTransition.EXIT
                             dynamicDelay = calculateDynamicInterval(distance)  //div by 1000 to get seconds
                             val delayInSeconds = dynamicDelay/1000
                             val isUserInCircle = appPreferences.getIsUserInCircle()
@@ -698,24 +755,6 @@ class LocationMonitoringService : Service() {
     ///////////////////////////////////
     //          NOTIFICATIONS        //
     ///////////////////////////////////
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val serviceChannel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Monitorowanie lokalizacji",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            serviceChannel.description =
-                "Kanał dla powiadomień o monitorowaniu lokalizacji eWeLink."
-            serviceChannel.enableLights(false)
-            serviceChannel.enableVibration(false)
-            serviceChannel.setSound(null, null)
-            serviceChannel.lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
-
-            notificationManager.createNotificationChannel(serviceChannel)
-        }
-    }
-
     private fun createMainNotification(message: String): NotificationCompat.Builder {
         val notificationIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -790,7 +829,7 @@ class LocationMonitoringService : Service() {
         }
 
         // Create new notification
-        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, EVENTS_NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
