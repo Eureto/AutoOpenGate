@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,6 +35,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eureto.opendoor.ui.theme.BlazeOrange
@@ -42,6 +45,7 @@ import eureto.opendoor.ui.theme.JetBlack
 
 @Composable
 fun ActionButtonWithInfoBlock(
+    isSet: Boolean,
     text: String,
     onClick: () -> Unit,      // Co robi główny przycisk
     onInfoClick: () -> Unit   // Co robi przycisk (i)
@@ -50,31 +54,74 @@ fun ActionButtonWithInfoBlock(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (isSet) {
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = "Skonfigurowano",
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier
+                    .padding(end = 0.dp)
+                    .size(26.dp)
+            )
+        }
         // Główny pomarańczowy przycisk
         Button(
             onClick = onClick,
             modifier = Modifier
                 .weight(1f)
                 .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = BlazeOrange),
-            shape = RoundedCornerShape(26.dp)
-        ) {
-            Text(
-                text = text,
-                color = Color.White,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isSet) Color.Transparent else BlazeOrange.copy(alpha = 0.5f),
+                contentColor = JetBlack,
+                disabledContainerColor = Color.Transparent
+            ),
 
-        Spacer(modifier = Modifier.width(8.dp))
+            ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = text,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Start,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                if (isSet) {
+                    Text(
+                        text = "›",
+                        textAlign = TextAlign.Center,
+                        color = if (isSet) Color.Gray else Color.Black,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = BlazeOrange,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "Ustaw",
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+        }
 
         // Przycisk informacji (i)
         IconButton(onClick = onInfoClick) {
             Icon(
                 imageVector = Icons.Default.Info,
                 contentDescription = "Informacje",
-                tint = JetBlack
+                tint = Color.Gray
             )
         }
     }
@@ -83,6 +130,7 @@ fun ActionButtonWithInfoBlock(
 //Przycisk w formie obramowanej pigułki z jasnym tłem i cieniem.
 @Composable
 fun PillButtonBlock(
+    isConfigurationSet: Boolean,
     text: String,
     onClick: () -> Unit
 ) {
@@ -94,14 +142,14 @@ fun PillButtonBlock(
             .clickable { onClick() },
         shape = RoundedCornerShape(28.dp),
         color = CardBg,
-        border = BorderStroke(1.dp, Color(0xFFD4E157)) // Jasnozielona ramka
+        border = BorderStroke(1.dp, if (isConfigurationSet) Color(0xFFD4E157) else BlazeOrange) // Zielona, gdy automatyka działa; pomarańczowa, gdy nie
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = text,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = JetBlack
+                color = if(isConfigurationSet) JetBlack else Color.Gray
             )
         }
     }
@@ -138,30 +186,23 @@ fun ManualSwitchBlock(
             )
             .padding(horizontal = 8.dp)
     ) {
-//        Text(
-//            text = if (isOn) "Wyłącz urządzenie" else "Włącz urządzenie",
-//            color = Color.White,
-//            fontSize = 20.sp,
-//            fontWeight = FontWeight.Bold,
-//            modifier = Modifier.align(Alignment.Center)
-//        )
+        Text(
+            text = if (isOn) "Wyłącz urządzenie" else "Włącz urządzenie",
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.Center)
+        )
 
         // Suwak / Gałka
         Box(
             modifier = Modifier
                 .align(BiasAlignment(horizontalBias = knobBias, verticalBias = 0f))
-                .width(150.dp)
+                .width(80.dp)
                 .height(80.dp)
                 .shadow(4.dp, RoundedCornerShape(20.dp))
                 .background(Color.White, RoundedCornerShape(20.dp))
-        ){
-            Text(
-                text = if (isOn) "<- Off" else "On ->",
-                color = Color.Black,
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.Center)
-            )
-        }
+
+        )
     }
 }
