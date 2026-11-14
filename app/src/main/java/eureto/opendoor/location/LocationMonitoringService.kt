@@ -558,7 +558,7 @@ class LocationMonitoringService : Service() {
     }
 
     private fun calculateDynamicInterval(distanceKm: Float): Long {
-        return TimeUnit.MINUTES.toMillis(distanceKm.toLong())
+        return TimeUnit.MINUTES.toMillis(distanceKm.toLong().coerceAtLeast(1))
     }
 
     ///////////////////////////////////
