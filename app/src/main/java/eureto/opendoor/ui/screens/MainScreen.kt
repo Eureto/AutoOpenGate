@@ -1,8 +1,7 @@
 package eureto.opendoor.ui.screens
 
-import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothProfile
 import android.content.Context
+import eureto.opendoor.location.BluetoothStateManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -82,8 +81,14 @@ fun MainScreen(
     }
     var zoneRadiusMeters by remember { mutableStateOf(appPreferences.getGeofenceRadius()) }
     var lastActionTimestamp by remember { mutableStateOf(appPreferences.getLastDeviceStatusChange()) }
-    var isBluetoothConnected by remember {
-        mutableStateOf(isSavedBluetoothDeviceConnected(context, appPreferences))
+
+    // Obserwacja stanu połączenia Bluetooth w czasie rzeczywistym
+    val rawBluetoothConnected by BluetoothStateManager.isConnected.collectAsState()
+    val isBluetoothConnected = if (!isBluetoothConfigured) null else rawBluetoothConnected
+
+    // Inicjalizacja stanu Bluetooth przy pierwszym wejściu
+    LaunchedEffect(Unit) {
+        BluetoothStateManager.refreshState(context, appPreferences)
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -95,7 +100,7 @@ fun MainScreen(
                 isAreaConfigured = !appPreferences.getPolygonCoordinates().isNullOrEmpty()
                 zoneRadiusMeters = appPreferences.getGeofenceRadius()
                 lastActionTimestamp = appPreferences.getLastDeviceStatusChange()
-                isBluetoothConnected = isSavedBluetoothDeviceConnected(context, appPreferences)
+                BluetoothStateManager.refreshState(context, appPreferences)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -513,42 +518,3 @@ private fun formatLastAction(timestampMs: Long): String {
         "Otwarto ${SimpleDateFormat("d.MM, HH:mm", Locale.getDefault()).format(moment)}"
     }
 }
-
-/**
- * Sprawdza, czy któreś z zapisanych urządzeń Bluetooth jest aktualnie połączone.
- * Zwraca null, gdy nie ma zapisanych urządzeń, brak adaptera lub brak uprawnień.
- *
- * Uwaga: nie każdy telefon wspiera wszystkie profile (np. HEADSET), dlatego każdy
- * profil sprawdzamy osobno i pomijamy te, które rzucą IllegalArgumentException.
- */
-private fun isSavedBluetoothDeviceConnected(
-    context: Context,
-    appPreferences: AppPreferences
-): Boolean? {
-    val savedDevices = appPreferences.getSelectedBluetoothDevices() ?: return null
-    if (savedDevices.isEmpty()) return null
-
-    val bluetoothManager =
-        context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager ?: return null
-
-    val connectedAddresses = mutableSetOf<String>()
-    for (profile in BLUETOOTH_PROFILES) {
-        try {
-            bluetoothManager.getConnectedDevices(profile).mapTo(connectedAddresses) { it.address }
-        } catch (e: SecurityException) {
-            // Na Androidzie 12+ wymagane jest uprawnienie BLUETOOTH_CONNECT
-            return null
-        } catch (e: Exception) {
-            // Profil niewspierany przez to urządzenie (np. HEADSET) — pomijamy
-        }
-    }
-
-    return savedDevices.keys.any { it in connectedAddresses }
-}
-
-private val BLUETOOTH_PROFILES = listOf(
-    BluetoothProfile.HEADSET,
-    BluetoothProfile.A2DP,
-    BluetoothProfile.GATT,
-    BluetoothProfile.GATT_SERVER
-)

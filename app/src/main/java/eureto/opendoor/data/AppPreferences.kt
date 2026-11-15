@@ -171,4 +171,14 @@ class AppPreferences(private val context: Context) {
         }
     }
 
+    fun isBluetoothDeviceConnected(): Boolean =
+        encryptedSharedPreferences.getBoolean("is_bluetooth_connected", false)
+
+    fun setBluetoothDeviceConnected(value: Boolean) {
+        with(encryptedSharedPreferences.edit()) {
+            putBoolean("is_bluetooth_connected", value)
+            apply()
+        }
+    }
+
 }
