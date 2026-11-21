@@ -803,7 +803,6 @@ class LocationMonitoringService : Service() {
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
     private fun createNewUserNotification(title: String, message: String){
-        // TODO: Create global funciton that will check for permissions
         MyLog.addLogMessageIntoFile(applicationContext, "Stworzono nowe powiadomienie: $title : $message ")
         val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
 
@@ -821,7 +820,6 @@ class LocationMonitoringService : Service() {
 
             if (!hasPermission) {
                 MyLog.addLogMessageIntoFile(this, "Brak uprawnienia POST_NOTIFICATIONS (Android 13+).")
-                // TODO: request permissoin before creating service!!!
                 return
             }
         }

@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.ui.input.key.type
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys  //TODO: Change depracated MasterKeys to new implementation
+import androidx.security.crypto.MasterKeys
 import com.google.android.gms.maps.model.LatLng
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken

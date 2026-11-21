@@ -14,7 +14,7 @@
 
 <!--<data-extraction-rules>-->
 <!--    <cloud-backup>-->
-<!--        &lt;!&ndash; TODO: Use <include> and <exclude> to control what is backed up.-->
+<!--        &lt;!&ndash;-->
 <!--        <include .../>-->
 <!--        <exclude .../>-->
 <!--        &ndash;&gt;-->
