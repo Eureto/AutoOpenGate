@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import eureto.opendoor.location.ZoneState
 import eureto.opendoor.ui.theme.BlueSlate
 import eureto.opendoor.ui.theme.CardBg
 import eureto.opendoor.ui.theme.JetBlack
@@ -41,12 +42,14 @@ private val MutedText = Color(0xFF8A9284)
  * Karta statusu automatyki — 3 wiersze: Bluetooth, Strefa, Ostatnia akcja.
  *
  * @param bluetoothConnected true = "Połączono", false = "Brak połączenia", null = "Brak danych"
- * @param zoneRadiusMeters promień strefy w metrach, null = "Brak danych"
+ * @param zoneState pozycja użytkownika względem strefy, null = "Ustalanie lokalizacji..."
+ * @param zoneRadiusMeters promień strefy w metrach (dopisywany do tekstu strefy)
  * @param lastActionText gotowy tekst, np. "Otwarto dziś, 18:42", null = "Brak akcji"
  */
 @Composable
 fun AutomationStatusCard(
     bluetoothConnected: Boolean? = null,
+    zoneState: ZoneState? = null,
     zoneRadiusMeters: Int? = null,
     lastActionText: String? = null,
     modifier: Modifier = Modifier
@@ -82,8 +85,17 @@ fun AutomationStatusCard(
                 icon = Icons.Outlined.Place,
                 iconTint = StatusGreen,
                 label = "Strefa",
-                value = zoneRadiusMeters?.let { "promień $it m" } ?: "Brak danych",
-                valueColor = if (zoneRadiusMeters != null) JetBlack else MutedText
+                value = when (zoneState) {
+                    ZoneState.IN_POLYGON -> "W domu (obszar bramy)"
+                    ZoneState.IN_CIRCLE -> "W strefie" + (zoneRadiusMeters?.let { " (do $it m)" } ?: "")
+                    ZoneState.OUTSIDE -> "Poza strefą" + (zoneRadiusMeters?.let { " ($it m)" } ?: "")
+                    null -> "Ustalanie lokalizacji..."
+                },
+                valueColor = when (zoneState) {
+                    ZoneState.IN_POLYGON, ZoneState.IN_CIRCLE -> StatusGreen
+                    ZoneState.OUTSIDE -> JetBlack
+                    null -> MutedText
+                }
             )
 
             HorizontalDivider(color = DividerColor, thickness = 1.dp)
@@ -145,6 +157,7 @@ private fun StatusRow(
 private fun AutomationStatusCardPreview() {
     AutomationStatusCard(
         bluetoothConnected = true,
+        zoneState = ZoneState.IN_CIRCLE,
         zoneRadiusMeters = 150,
         lastActionText = "Otwarto dziś, 18:42",
         modifier = Modifier.padding(16.dp)

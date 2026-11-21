@@ -10,6 +10,9 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import eureto.opendoor.BuildConfig
 import eureto.opendoor.network.model.LoginResponse
+ import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
 
 
@@ -38,6 +41,11 @@ class AppPreferences(private val context: Context) {
     private val CLIENT_SECRET = BuildConfig.EWELINK_CLIENT_SECRET
     // Replace with your actual redirect URI
     private val REDIRECT_URI = "euretoapp://oauth2callback" // Must be the same as in AndroidManifest.xml
+
+    private companion object {
+        // Współdzielone między instancjami AppPreferences (serwis, Activity, UI)
+        val lastDeviceStatusChangeState = MutableStateFlow<Long?>(null)
+    }
 
     fun getClientId(): String = CLIENT_ID
     fun getClientSecret(): String = CLIENT_SECRET
@@ -80,6 +88,19 @@ class AppPreferences(private val context: Context) {
     // Saves the timestamp (ms) of the last device status change received via WebSocket
     fun saveLastDeviceStatusChange(timestampMs: Long) {
         encryptedSharedPreferences.edit().putLong("last_device_status_change_ms", timestampMs).apply()
+        // Powiadom UI na żywo (serwis, WebSocket i ręczny przełącznik działają w tym samym procesie)
+        lastDeviceStatusChangeState.value = timestampMs
+    }
+
+    /**
+     * Reaktywny strumień timestampu ostatniej akcji — UI odświeża się natychmiast po zapisie.
+     * Przy pierwszym wywołaniu wartość jest wczytywana z preferencji.
+     */
+    fun lastDeviceStatusChangeFlow(): StateFlow<Long?> {
+        if (lastDeviceStatusChangeState.value == null) {
+            lastDeviceStatusChangeState.value = getLastDeviceStatusChange()
+        }
+        return lastDeviceStatusChangeState.asStateFlow()
     }
 
     // Returns the timestamp (ms) of the last device status change, or null if never recorded

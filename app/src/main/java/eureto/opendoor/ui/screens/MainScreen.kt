@@ -2,6 +2,7 @@ package eureto.opendoor.ui.screens
 
 import android.content.Context
 import eureto.opendoor.location.BluetoothStateManager
+import eureto.opendoor.location.ZoneStateManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -80,10 +81,13 @@ fun MainScreen(
         mutableStateOf(!appPreferences.getPolygonCoordinates().isNullOrEmpty())
     }
     var zoneRadiusMeters by remember { mutableStateOf(appPreferences.getGeofenceRadius()) }
-    var lastActionTimestamp by remember { mutableStateOf(appPreferences.getLastDeviceStatusChange()) }
+    // Reaktywnie — aktualizuje się na żywo, gdy serwis/WebSocket zapisze nową akcję
+    val lastActionTimestamp by remember { appPreferences.lastDeviceStatusChangeFlow() }.collectAsState()
 
     // Obserwacja stanu połączenia Bluetooth w czasie rzeczywistym
     val rawBluetoothConnected by BluetoothStateManager.isConnected.collectAsState()
+    // Pozycja względem strefy (poza / w okręgu / w wielokącie) — na żywo
+    val zoneState by ZoneStateManager.zone.collectAsState()
     val isBluetoothConnected = if (!isBluetoothConfigured) null else rawBluetoothConnected
 
     // Inicjalizacja stanu Bluetooth przy pierwszym wejściu
@@ -99,7 +103,6 @@ fun MainScreen(
                     appPreferences.getSelectedBluetoothDevices()?.isNotEmpty() == true
                 isAreaConfigured = !appPreferences.getPolygonCoordinates().isNullOrEmpty()
                 zoneRadiusMeters = appPreferences.getGeofenceRadius()
-                lastActionTimestamp = appPreferences.getLastDeviceStatusChange()
                 BluetoothStateManager.refreshState(context, appPreferences)
             }
         }
@@ -174,6 +177,7 @@ fun MainScreen(
                     Column {
                         AutomationStatusCard(
                             bluetoothConnected = isBluetoothConnected,
+                            zoneState = zoneState,
                             zoneRadiusMeters = zoneRadiusMeters,
                             lastActionText = lastActionText
                         )

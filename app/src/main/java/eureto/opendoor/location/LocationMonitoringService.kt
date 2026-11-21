@@ -272,6 +272,7 @@ class LocationMonitoringService : Service() {
                     ).await()
                 if (location != null) {
                     val currentLocation = LatLng(location.latitude, location.longitude)
+                    ZoneStateManager.updateFromPrefs(currentLocation, appPreferences)
                     val result = FloatArray(1)
                     Location.distanceBetween(
                         polygonCenter!!.latitude,
@@ -358,6 +359,7 @@ class LocationMonitoringService : Service() {
             if (location != null) {
                 // check if user is in selected area if yes then toggle device
                 val currentLocation = LatLng(location.latitude, location.longitude)
+                ZoneStateManager.updateFromPrefs(currentLocation, appPreferences)
 
                 val isNowInsidePolygon =
                 PolyUtil.containsLocation(currentLocation, polygonCoordinates, true)
@@ -449,6 +451,7 @@ class LocationMonitoringService : Service() {
 
                 val currentLocation = LatLng(location.latitude, location.longitude)
                 MyLog.addLogMessageIntoFile(applicationContext,"Aktualna lokalizacja: $currentLocation")
+                ZoneStateManager.updateFromPrefs(currentLocation, appPreferences)
 
                 // Check if user is in the geofence circle
                 val result = FloatArray(1)
@@ -702,6 +705,7 @@ class LocationMonitoringService : Service() {
                         if(location != null) {
 
                             val currentLocation = LatLng(location.latitude, location.longitude)
+                            ZoneStateManager.updateFromPrefs(currentLocation, appPreferences)
 
                             // W domu nie ma czego odpytywać — pętla ma sens tylko poza obszarem.
                             val isNowInsidePolygon = PolyUtil.containsLocation(

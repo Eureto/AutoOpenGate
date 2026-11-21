@@ -28,6 +28,7 @@ import androidx.lifecycle.lifecycleScope
 import eureto.opendoor.R
 import eureto.opendoor.data.AppPreferences
 import eureto.opendoor.location.LocationMonitoringService
+import eureto.opendoor.location.ZoneStateManager
 import eureto.opendoor.logging.MyLog
 import eureto.opendoor.network.EwelinkApiClient
 import eureto.opendoor.network.EwelinkDevices
@@ -50,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private var selectedDeviceNameState by mutableStateOf("Brak")
     private var isDeviceOnState by mutableStateOf(false)
     private var isMonitoringActiveState by mutableStateOf(false)
+    private var isScreenVisible = false
 
     // Ponawianie połączenia WebSocket z rosnącym opóźnieniem
     private var webSocketRetryJob: Job? = null
@@ -156,6 +158,7 @@ class MainActivity : AppCompatActivity() {
                     onLogoutClicked = {
                         appPreferences.clearLoginData()
                         stopLocationMonitoringService()
+                        ZoneStateManager.reset()
                         EwelinkWebSocketManager.disconnect()
                         val intent = Intent(this, LoginActivity::class.java)
                         startActivity(intent)
@@ -181,6 +184,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        isScreenVisible = true
         updateMonitoringStatusUI()
 
         // Jeśli połączenie WebSocket zerwało się w tle, spróbuj je odnowić
@@ -330,10 +334,28 @@ class MainActivity : AppCompatActivity() {
         stopService(serviceIntent)
         Toast.makeText(this, "Zatrzymano monitorowanie lokalizacji.", Toast.LENGTH_SHORT).show()
         updateMonitoringStatusUI()
+        ZoneStateManager.stopForegroundUpdates()
+        ZoneStateManager.reset()
     }
 
     private fun updateMonitoringStatusUI() {
         isMonitoringActiveState = isServiceRunning(LocationMonitoringService::class.java)
+        updateZoneTracking()
+    }
+
+    /// Gdy automatyzacja jest aktywna i aplikacja widoczna — śledź strefę na żywo.
+    private fun updateZoneTracking() {
+        if (isMonitoringActiveState && isScreenVisible) {
+            ZoneStateManager.startForegroundUpdates(this, appPreferences)
+        } else {
+            ZoneStateManager.stopForegroundUpdates()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        isScreenVisible = false
+        ZoneStateManager.stopForegroundUpdates()
     }
 
     @Suppress("DEPRECATION")

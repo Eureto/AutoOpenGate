@@ -82,6 +82,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
         when (geofenceTransition) {
             Geofence.GEOFENCE_TRANSITION_ENTER -> {
                 appPreferences.setIsUserInCircle(true)
+                ZoneStateManager.onCircleTransition(entered = true)
                 MyLog.addLogMessageIntoFile(context, "Zdarzenie GEOFENCE_TRANSITION_ENTER")
                 val locationIntent = Intent(context, LocationMonitoringService::class.java).apply {
                     action = ACTION_START_LOCATION
@@ -91,6 +92,7 @@ class GeofenceTransitionsReceiver : BroadcastReceiver() {
 
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 appPreferences.setIsUserInCircle(false)
+                ZoneStateManager.onCircleTransition(entered = false)
                 MyLog.addLogMessageIntoFile(
                     context,
                     "Zdarzenie GEOFENCE_TRANSITION_EXIT — uruchamiam aktualizację lokalizacji w tle"
