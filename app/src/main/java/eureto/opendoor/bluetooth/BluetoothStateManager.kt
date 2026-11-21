@@ -1,4 +1,4 @@
-package eureto.opendoor.location
+package eureto.opendoor.bluetooth
 
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile

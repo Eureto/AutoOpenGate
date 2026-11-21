@@ -71,7 +71,7 @@
 
         <!-- Broadcast Receiver dla Bluetooth -->
         <receiver
-            android:name=".location.BluetoothDeviceConnectedReceiver"
+            android:name=".bluetooth.BluetoothDeviceConnectedReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter>

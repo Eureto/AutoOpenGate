@@ -1,4 +1,4 @@
-package eureto.opendoor.location
+package eureto.opendoor.bluetooth
 
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
@@ -9,6 +9,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
+import eureto.opendoor.location.LocationMonitoringService
 import eureto.opendoor.location.LocationMonitoringService.Companion.ACTION_LOCATION_CHECK_IN_CAR
 import eureto.opendoor.logging.MyLog
 import eureto.opendoor.network.EwelinkApiClient

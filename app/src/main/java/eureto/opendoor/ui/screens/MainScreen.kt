@@ -1,7 +1,6 @@
 package eureto.opendoor.ui.screens
 
-import android.content.Context
-import eureto.opendoor.location.BluetoothStateManager
+import eureto.opendoor.bluetooth.BluetoothStateManager
 import eureto.opendoor.location.ZoneStateManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -13,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lightbulb
@@ -36,7 +34,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import eureto.opendoor.data.AppPreferences
 import eureto.opendoor.network.EwelinkApiClient
 import eureto.opendoor.network.model.Device
 import eureto.opendoor.ui.components.*
