@@ -69,7 +69,6 @@ class MainActivity : AppCompatActivity() {
             checkAndStartLocationMonitoring() // Uruchamianie usługi monitorowania lokalizacji
         } else {
             Toast.makeText(this, "Uprawnienia lokalizacji NIE przyznane. Automatyka może nie działać.", Toast.LENGTH_LONG).show()
-            // TODO: Przekieruj użytkownika do ustawień, aby mógł ręcznie przyznać uprawnienia
             // Utwórz intencję, aby otworzyć ustawienia dla tej konkretnej aplikacji
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                 data = Uri.fromParts("package", packageName, null)
